@@ -80,39 +80,42 @@ def run_single():
     sim = Simulator(environ)
     sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
+    sim.setDSDEVS(True) 
     # sim.setVerbose(None)
     # sim.setSchedulerDiscreteTime()
     sim.setSchedulerMinimalList()
 
     sim.simulate()
     pd.concat({ k: pd.DataFrame.from_dict(v, 'index') for k, v in environ.agent_states_dict.items()}, axis=0).\
-        to_csv("xperiment_event_based_prob_fission_%.2f.csv" % model.Parameters.PROB_FISSION)
+        to_csv("xperiment_prob_fission_%.2f.csv" % model.Parameters.PROB_FISSION)
 
 
 RETRIES = 1
-FF_CICLES = 12
+FF_CICLES = 3
 
 def run_multiple():
     # parameters_comb_list = [{"PROB_FISSION": 0.5}, {"PROB_FISSION": 0.8}]
     parameters_comb_list = [
-            {"PROB_FISSION": 0.8, "RATE_INACTIVE_FF_WAKE":1, "RATE_FF":1/30},
-            {"PROB_FISSION": 0.2, "RATE_INACTIVE_FF_WAKE":1, "RATE_FF":1/30},
-            {"PROB_FISSION": 0.5, "RATE_INACTIVE_FF_WAKE":1,"RATE_FF": 1/30}
-    ]
+            {"PROB_FISSION": 0.2, "RATE_INACTIVE_FF_WAKE":300, "RATE_FF":30},
+            {"PROB_FISSION": 0.5, "RATE_INACTIVE_FF_WAKE":300,"RATE_FF": 30},
+            {"PROB_FISSION": 0.8, "RATE_INACTIVE_FF_WAKE":300, "RATE_FF":30},
+            # {"PROB_FISSION": 0, "RATE_INACTIVE_FF_WAKE":300,"RATE_FF": 300},
+            # {"PROB_FISSION": 1, "RATE_INACTIVE_FF_WAKE":300,"RATE_FF": 300}
+            ]
 
-    run_combinations = list(itertools.product(parameters_comb_list, range(RETRIES, RETRIES * 2)))
+    run_combinations = list(itertools.product(parameters_comb_list, range(1, 1+ RETRIES)))
     for params, retry in tqdm.tqdm(run_combinations):
         np.random.seed(1)
         for k, v in params.items():
             setattr(model.Parameters, k, v)
-        # DURATION = FF_CICLES * Parameters.RATE_FF
-        DURATION=121
-        # setattr(model.Parameters, "DURATION", DURATION)
+        DURATION = FF_CICLES * Parameters.RATE_FF
+        setattr(model.Parameters, "DURATION", DURATION)
         setattr(model.Parameters, "RETRY", retry)
         environ = Cell(name="Mitto Fi Fu")
         sim = Simulator(environ)
         sim.setTerminationTime(Parameters.DURATION)
-        sim.setClassicDEVS()
+        # sim.setClassicDEVS()
+        sim.setDSDEVS(True) 
         # sim.setVerbose(None)
         # sim.setSchedulerDiscreteTime()
         sim.setSchedulerMinimalList()
@@ -122,8 +125,8 @@ def run_multiple():
 
 run_multiple()
 
-# Extract from the sqlite file the aggregated data:
-conn = model.init_sqlite3(Parameters.DB_FILE_NAME)
+# Extract from the sqlite file the aggregated data: 
+conn = model.init_sqlite3("mito_experiment.sqlite")
 cursor = conn.cursor()
 cursor.execute("""
 select mitostate.currenttime,
@@ -131,18 +134,20 @@ select mitostate.currenttime,
  mitostate.state,
  mitostate.retry,
  sum(mitostate.mass)/300 as perc,
-  ms2.mass_group
+  ms2.mass_group,
+  mitostate.duration
 from (select id, currenttime, duration, retry, fissionprob, rerun,
      (case when mass between 0 and 1 then 'small'
     when mass between 1 and 2 then 'medium'
-    when mass between 2 and 3 then 'large' end) as mass_group from mitostate) as ms2
+    when mass between 2 and 3 then 'large' end) as mass_group from mitostate) as ms2 
 inner join mitostate on mitostate.id=ms2.id and
 mitostate.currenttime = ms2.currenttime and
 mitostate.duration = ms2.duration and
 mitostate.retry = ms2.retry and
 mitostate.fissionprob = ms2.fissionprob and
 mitostate.rerun = ms2.rerun
-where mitostate.id = ms2.id and
+where 
+mitostate.id = ms2.id and 
 state != 'Inactive' and
 mitostate.rerun = 0
 group by mitostate.fissionprob,
@@ -154,9 +159,20 @@ ms2.mass_group;
 
 import csv
 rows = cursor.fetchall()
-filename = "experiment_event_based_cicles_%d_retries_%d.csv"  % (FF_CICLES, RETRIES)
+filename = "experiment_cicles_%d_retries_%d_duration.csv"  % (FF_CICLES, RETRIES,)
 csvWriter = csv.writer(open(filename, "w"))
 csvWriter.writerows(rows)
+
+event_count = """select currenttime, fissionprob, retry, duration,
+requestedstate, count(1) from mitostate where requestedstate != 'None' and
+state != 'Inactive' GROUP BY currenttime, fissionprob, duration, retry, requestedstate;"""
+cursor.execute(event_count)
+
+rows = cursor.fetchall()
+filename = "experiment_events_%d_retries_%d_duration.csv"  % (FF_CICLES, RETRIES,)
+csvWriter = csv.writer(open(filename, "w"))
+csvWriter.writerows(rows)
+
 
 
 #    ======================================================================

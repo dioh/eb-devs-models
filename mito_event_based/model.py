@@ -19,7 +19,7 @@
 
 import copy
 import numpy as np
-# import scipy.spatial.distance as distance
+import scipy.spatial.distance as distance
 # import scipy.spatial as spatial
 # from sklearn.neighbors import NearestNeighbors
 # import networkx as nx
@@ -27,6 +27,7 @@ from pypdevs.infinity import INFINITY
 
 # Import code for DEVS model representation:
 from pypdevs.DEVS import CoupledDEVS, AtomicDEVS
+import random
 
 from sklearn.neighbors import NearestNeighbors
 
@@ -42,8 +43,6 @@ def init_sqlite3(dbname):
               name VARCHAR(255),
               area VARCHAR(255),
               child INTEGER,
-              fftimer REAL,
-              total_mass REAL,
 
               fusionatedwith INTEGER,
               currenttime INTEGER,
@@ -52,7 +51,7 @@ def init_sqlite3(dbname):
               oldmass REAL,
               parent INTEGER,
               position_x REAL,
-              position_y REAL,
+              position_y REAL, 
               requestedstate VARCHAR(50),
               rerun INTEGER,
               state VARCHAR(80),
@@ -70,15 +69,16 @@ def init_sqlite3(dbname):
     conn.commit()
     return conn
 
-# random.seed(0)
+# np.random.seed(0)
+random.seed(0)
 
 class Parameters(object):
-    DB_FILE_NAME = "mito_dyn_devs_event_new_3.sqlite"
+    DB_NAME = "mito_experiment.sqlite"
     MASS_TOTAL = 300
     MASS_MAX = 3.0
     MASS_MIN = 0.5
 
-    DURATION = 31
+    DURATION = 720
     RETRY = 1
 
     PROB_FISSION = 0.2
@@ -94,7 +94,6 @@ class Parameters(object):
     VEL_PERINUCLEAR = 0.22
 
     RATE_FF = 30
-    RATE_INACTIVE_FF_WAKE = 1
     RATE_MV = 1
 
     RADIUS = 1
@@ -153,32 +152,22 @@ class MitoState(object):
         self.ff_timer = np.floor(np.random.exponential(Parameters.RATE_FF)) + 1
 
         # Get a position valid inside the circle defined in Parameters
-        rho = np.random.random() * 2 * np.pi
+        rho = random.random() * 2 * np.pi
         radius = (Parameters.RADIUS_NUCLEUS_END +
-                  np.random.random() * (Parameters.RADIUS_CELL_END -
+                  random.random() * (Parameters.RADIUS_CELL_END -
                                      Parameters.RADIUS_NUCLEUS_END))
 
         x = np.cos(rho) * radius
         y = np.sin(rho) * radius
 
         self._position = np.array([x, y])
-        self._direction = np.random.random() * 2 * np.pi
+        self._direction = random.random() * 2 * np.pi
         self._time_unit = 1
 
-        self._mass = np.random.random() * (Parameters.MASS_MAX -
+        self._mass = random.random() * (Parameters.MASS_MAX -
                       Parameters.MASS_MIN) + Parameters.MASS_MIN
 
-        # rnd = random.random()
-        # if rnd <= 0.15:
-        #     self._mass = random.random() * (1 -
-        #               Parameters.MASS_MIN) + Parameters.MASS_MIN
-        # elif rnd <= 0.45:
-        #     # Medium mito
-        #     self._mass = random.random() * (2 -
-        #               1.000000001) + 1.000000001
-        # else:
-        #     self._mass = random.random() * (Parameters.MASS_MAX -
-        #               2.000000001) + 2.000000001
+
 
         self._old_mass = None
 
@@ -229,6 +218,15 @@ class MitoState(object):
     @direction.setter
     def direction(self, direction):
         self._direction = direction % (2*np.pi)
+
+    @property
+    def time_unit(self):
+        """I'm the 'time_unit' property."""
+        return self._time_unit
+
+    @time_unit.setter
+    def time_unit(self, time_unit):
+        self._time_unit = time_unit
 
     @property
     def velocity(self):
@@ -303,7 +301,7 @@ class MitoState(object):
         self._ta = ta
 
     def get(self):
-        return(self._name, self._state)
+        return self._name, self._state
 
     def __repr__(self):
         return "Mito: %s, State: %s, ReqState: %s" % (str(self.name), str(self.state), str(self.requested_state))
@@ -331,9 +329,9 @@ class Mito(AtomicDEVS):
 
     def get_area_from_position(self, position):
         h = (position[0]**2 + position[1] ** 2) ** 0.5
-        if self.areas[0] <= h and h <= self.areas[1]:
+        if self.areas[0] <= h <= self.areas[1]:
             return MitoAreas.P
-        if self.areas[1] < h and h <= self.areas[2]:
+        if self.areas[1] < h <= self.areas[2]:
             return MitoAreas.C
 
     def get_new_direction(self, state=None, random_direction=True):
@@ -345,7 +343,7 @@ class Mito(AtomicDEVS):
         if not random_direction:
             return state.direction + np.pi
 
-        return np.random.random() * 2 * np.pi
+        return random.random() * 2 * np.pi
 
     def get_new_velocity(self, state):
         """
@@ -397,28 +395,24 @@ class Mito(AtomicDEVS):
         """
         Internal Transition Function.
         """
-
         self.state.current_time += self.state.ta
 
+        ff_condition_time = self.state.current_time > 0 and (self.state.current_time %
+                self.parent.getContextInformation(ENVProps.RATE_FF) == 0)
+
+
+        self.state.requested_state = MitoRequestedStates.N
         if self.state.re_run:
             self.state.re_run = False
-        # print("int,%d,%d"% (self.state.current_time, self.state.id))
-        self.state.requested_state = MitoRequestedStates.N
+            return self.state
+        # self.state.requested_state = MitoRequestedStates.N
 
-        ff_condition_time = (self.state.current_time %
-                self.state.ff_timer == 0)
         # If true then run the Fusion Fission cycle
         fusion_fision_condition = ff_condition_time
-
-        # l_to_inactivate = self.parent.getContextInformation(ENVProps.MODELS_TO_INACTIVATE)
-        # if self.state.id in l_to_inactivate:
-        #     self.state.state = MitoStates.I
-        #     return self.state
 
         if not fusion_fision_condition:
             # Move condition
             if (self.state.state == MitoStates.A):
-                self.state.requested_state = MitoRequestedStates.N
                 self.state.position, did_advance = self.advance(self.state)
                 self.state.area = self.get_area_from_position(self.state.position)
                 self.state.velocity = self.get_new_velocity(self.state)
@@ -428,25 +422,26 @@ class Mito(AtomicDEVS):
         else:
             if (self.state.state == MitoStates.A and
                 not self.state.id in self.parent.getContextInformation(ENVProps.MODELS_TO_INACTIVATE)):
-                if(np.random.random() <= Parameters.PROB_FISSION):
+                if(random.random() <= Parameters.PROB_FISSION):
+                    # I'm an active mito, that has not fusionated and must die.
                     if (self.state.mass >= 2* Parameters.MASS_MIN):
                         # Fission rule
                         mass = self.state.mass
-                        x_f = np.random.random()
+                        x_f = random.random()
                         min_mass_div_mass = (Parameters.MASS_MIN / mass)
                         m_1 = (x_f * (0.5 - min_mass_div_mass) + min_mass_div_mass) * mass
                         self.state.old_mass = mass
                         self.state.mass = m_1
+                        self.state.re_run = True
                         self.state.requested_state = MitoRequestedStates.FI
                 else:
                     closest_mitos = self.parent.getContextInformation(ENVProps.NEIGHBOR,
-                            position=self.state.position)
+                            position=self.state.position, mass=self.state.mass)
                     while(closest_mitos):
                         closest_mito = closest_mitos.pop()
                         if closest_mito:
-                            assigned_for_fussion = self.parent.getContextInformation(ENVProps.SHOULDFUSION,
-                                    mito_id=closest_mito.state.id)
-                            if assigned_for_fussion:
+                            assigned_for_fussion = self.parent.getContextInformation(ENVProps.MODELS_TO_INACTIVATE)
+                            if closest_mito.state.id in assigned_for_fussion:
                                 # Retry, cant fusion with this mito
                                 continue
                             if closest_mito.state.state == MitoStates.A and\
@@ -457,13 +452,15 @@ class Mito(AtomicDEVS):
                                     self.state.requested_state = MitoRequestedStates.FU
                                     self.state.fusionated_with = closest_mito.state.id
                                     break
+                return self.state
 
-            self.state.ff_timer = np.floor(np.random.exponential(Parameters.RATE_FF)) + 1
+            # TODO: What for?
+            # self.state.ff_timer = np.floor(np.random.exponential(Parameters.RATE_FF)) + 1
             return self.state
         return self.state
 
     def __lt__(self, other):
-        return (self.state.id < other.state.id)
+        return (self.state.id, self.state.state, self.state.re_run) < (other.state.id, other.state.state, other.state.re_run)
 
     def outputFnc(self):
         """
@@ -477,40 +474,43 @@ class Mito(AtomicDEVS):
         Time-Advance Function.
         """
         ta = None
-        if self.state.re_run:
-            ta = 0
-        elif self.state.state == MitoStates.A:
+        if self.state.state == MitoStates.A:
             ta = self.parent.getContextInformation(ENVProps.RATE_MV)
         self.state.ta = ta
 
         return self.state.ta
 
-    def modelTransition(self, state):
-        any_should_fission = self.parent.getContextInformation(ENVProps.ANY_SHOULD_FISSION)
-        any_should_fusion = self.parent.getContextInformation(ENVProps.ANY_SHOULD_FUSION)
-        return any_should_fusion or any_should_fission
+    def modelTransition(self, state): 
+        return self.state.requested_state != MitoRequestedStates.N
 
 class Cell(CoupledDEVS):
     def modelTransition(self, state):
-        # print("coupledmodeltransition")
-
         l_to_inactivate = self.getContextInformation(ENVProps.MODELS_TO_INACTIVATE)
         l_to_activate = self.getContextInformation(ENVProps.MODELS_TO_ACTIVATE)
 
+        print("-------------- Removing inactive models ---------------")
         while l_to_inactivate:
             agent_id = l_to_inactivate.pop()
+            search_model = None
+            for model in self.models:
+                if model.state.id == agent_id:
+                    search_model = model
             try:
-                model = self.agents_by_id[agent_id]
-                self.removeSubModel(model)
-                del self.agents_by_id[agent_id]
-                self.active_agents.remove(model)
+                self.removeSubModel(search_model) 
+                print("Removed model %d" % search_model.state.id)
             except Exception as e:
-                print("Exception: %s" %  e)
+                print("Failed to remove model %d" % search_model.state.id)
 
+
+        print("-------------- Finished removing inactive models ---------------")
+
+
+        print("-------------- Activating new models -------------")
         while l_to_activate:
             agent_info = l_to_activate.pop()
-            agent_number = max(self.agents_by_id.keys()) + 1
+            agent_number = self.models[-1].state.id  + 1
             agent = Mito(self, name="mito %d" % agent_number, id=agent_number)
+
             agent.state.mass = agent_info.old_mass - agent_info.mass
             agent.state.parent = agent_info.id
             agent.state.state = MitoStates.A
@@ -518,43 +518,32 @@ class Cell(CoupledDEVS):
             agent.state.current_time = agent_info.current_time
             agent.state.ta = 0
             agent.state.re_run = True
-            agent.state.ff_timer = np.floor(np.random.exponential(Parameters.RATE_FF)) + 1
+            agent.state.ff_timer = np.random.exponential(Parameters.RATE_FF)
 
-            self.active_agents.append(agent)
-            self.agents_by_id[agent_number] = agent
-            self.addSubModel(agent)
-            # print("Measured total mass %.8f, theoretical %.8f, perc %.8f" %
-            #       (sum([ag.state.mass for ag in self.active_agents]),
-            #                self.mass_total, sum([ag.state.mass for ag in self.active_agents])/
-            #                self.mass_total))
+            self.models.append(self.addSubModel(agent))
 
-        # measured_mas = np.sum(np.array([ag.state.mass for ag in self.active_agents]))
-        # if not np.allclose(measured_mas,
-        #                    self.mass_total):
-        #     __import__('ipdb').set_trace()
-
-
+        print("-------------- Finished activating new models ---------------")
         return False
 
     def __init__(self, name=None):
+        """
+        A simple flocking system consisting
+        """
+        # Always call parent class' constructor FIRST:
         CoupledDEVS.__init__(self, name)
-        self.conn = init_sqlite3(Parameters.DB_FILE_NAME)
+        self.conn = init_sqlite3(Parameters.DB_NAME)
 
         self.mass_total = Parameters.MASS_TOTAL
 
-        self.agent_states = {}
-        self.agent_states_dict = {}
-        self.agents = []
-        self.agents_by_id = {}
-        self.points = []
-
+        agents = []
+        self.points = [] 
         self.models = []
 
         self.model = NearestNeighbors(radius=Parameters.RADIUS)
 
 
-        self.velocities = {"C": np.random.random() * 2 * Parameters.VEL_CYTOSOLIC,
-                "P": np.random.random() * 2 * Parameters.VEL_PERINUCLEAR}
+        self.velocities = {"C": random.random() * 2 * Parameters.VEL_CYTOSOLIC,
+                "P": random.random() * 2 * Parameters.VEL_PERINUCLEAR}
 
         # As seen in nlogo file:
         # set mito-step_far ( (2 * 0.5) / ds * dt ) ;; 0.5 um/s
@@ -576,44 +565,41 @@ class Cell(CoupledDEVS):
 
             # Set agents initial state and save for initial stats.
             agent.state.state = MitoStates.A
-            self.agent_states[agent_number] = agent.state.state
 
             # Add to the agents lists
-            self.agents.append(agent)
+            agents.append(agent)
             agent_number += 1
         self.mass_total = Parameters.MASS_TOTAL - remaining_mass
-        self.active_agents = self.agents
 
-        print(sum([ag.state.mass for ag in self.agents]))
 
-        for agent in self.agents:
-            self.agents_by_id[agent.state.id] = agent
-            self.addSubModel(agent)
+        # Instantiate the backup agents for fission and fusion.
+        n_mito_agents = len(self.models)
 
+        for agent in agents:
+            self.models.append(self.addSubModel(agent)) 
+            
+
+
+        # TODO: Maybe I should load  agents_by_state initially here.
+        # Atributes for the context information
         self.inactive_models = []
         self.to_inactive = {}
 
         self.l_to_active = []
         self.l_to_inactive = []
 
-        points = np.array([np.array(x.state.position) for x in self.active_agents])
+        points = np.array([np.array(x.state.position) for x in self.models])
         self.model.fit(points)
 
     def saveChildrenState(self, state):
         super(Cell, self).saveChildrenState(state)
-        # print("%d,%d" % (state[0].current_time, state[0].id))
-
-        # Maintain the old and new state to check the changes
-        old_state = self.agent_states.get(state[0].id)
-        new_state = state[0].state
-        if old_state != new_state:
-            self.agent_states[state[0].id] = state[0].state
 
         state_to_save = state[0].as_dict_values()
         state_to_save['duration'] = Parameters.DURATION
         state_to_save['retry'] = Parameters.RETRY
         state_to_save['fissionprob'] = Parameters.PROB_FISSION
-        state_to_save['total_mass'] = self.mass_total
+        # state_to_save['total_mass'] = self.mass_total
+        del state_to_save['fftimer']
 
         columns = ', '.join(state_to_save.keys())
         placeholders = ', '.join('?' * len(state_to_save))
@@ -626,15 +612,17 @@ class Cell(CoupledDEVS):
         # Maintain the list of the active agents. This is used to get the
         # points of the active agents.
 
-        points = np.array([np.array(x.state.position) for x in self.active_agents])
+        # remove from the old list.
+        # if old_state != new_state:
+        #     del self.agents_by_state[old_state][state[0].id]
 
+        points = np.array([np.array(x.state.position) for x in self.models])
         try:
             self.model.fit(points)
         except Exception as e:
             print("Empty Active agents list, wait until Fusion/Fission ends")
 
         if state[0].requested_state == MitoRequestedStates.FI:
-            self.inactive_models.append(state[0])
             self.l_to_active.append(state[0])
 
         if state[0].requested_state == MitoRequestedStates.FU and\
@@ -657,13 +645,13 @@ class Cell(CoupledDEVS):
             return self.l_to_active
 
         if property == ENVProps.MODELS_TO_INACTIVATE:
-            self.l_to_inactive = list(set(self.l_to_inactive))
+            # self.l_to_inactive = list(set(self.l_to_inactive))
             return self.l_to_inactive
 
         if(property == ENVProps.VELOCITIES):
             return self.velocities
 
-        if(property == ENVProps.SHOULDFUSION):
+        if property == ENVProps.SHOULDFUSION:
             return self.to_inactive.get(kwargs['mito_id'], False)
 
         if(property == ENVProps.DIDFUSION):
@@ -672,7 +660,10 @@ class Cell(CoupledDEVS):
 
         # TODO: Poner las nuevas properties
         if(property == ENVProps.NEIGHBOR):
-            neighbors = self.model.radius_neighbors([kwargs["position"]], Parameters.RADIUS)
+            # FIXME: I should filter the inactives from the list.
+            mass = kwargs['mass']
+            position = kwargs["position"]
+            neighbors = self.model.kneighbors([position], return_distance=True)
             distances = neighbors[0][0]
 
             # Ignore the case where it is alone.
@@ -687,10 +678,16 @@ class Cell(CoupledDEVS):
             #i_closest_in_res = np.argmin(distances[np.nonzero(distances)])
             i_in_points_array = np.array(neighbors[1][0])[i_closest_in_res]
             try:
-                models = [self.agents_by_id.get(id) for id in i_in_points_array if id in self.agents_by_id]
-                return list(models)
+                models = np.array(self.models)[i_in_points_array]
+                filtered_models = []
+
+                for model in models:
+                    # radius_distance = 1 
+                    radius_distance = 1 + (mass/2) + (model.state.mass/2)
+                    if distance.euclidean(position, model.state.position) <= radius_distance:
+                        filtered_models.append(model)
+                return list(filtered_models)
             except Exception as e:
-                __import__('ipdb').set_trace()
                 raise e
             return
 
@@ -703,12 +700,7 @@ class Cell(CoupledDEVS):
             return Parameters.RATE_MV
 
         if(property == ENVProps.RATE_FF):
-            return np.floor(np.random.exponential(Parameters.RATE_FF)) + 1
-
-        if(property == ENVProps.FI):
-            if self.inactive_models:
-                return self.inactive_models.pop()
-            return None
+            return Parameters.RATE_FF
 
     def select(self, immChildren):
         """
