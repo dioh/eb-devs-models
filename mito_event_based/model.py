@@ -74,7 +74,7 @@ random.seed(0)
 
 class Parameters(object):
     DB_NAME = "mito_experiment.sqlite"
-    MASS_TOTAL = 300
+    MASS_TOTAL = 30
     MASS_MAX = 3.0
     MASS_MIN = 0.5
 
@@ -395,6 +395,10 @@ class Mito(AtomicDEVS):
         """
         Internal Transition Function.
         """
+        
+        # print("Int transition")
+        # print((self.state.current_time, self.state.id))
+        # print()
         self.state.current_time += self.state.ta
 
         ff_condition_time = self.state.current_time > 0 and (self.state.current_time %
@@ -420,6 +424,10 @@ class Mito(AtomicDEVS):
                 self.state.direction = self.get_new_direction(self.state, did_advance)
                 return self.state
         else:
+
+            if self.state.id in self.parent.getContextInformation(ENVProps.MODELS_TO_INACTIVATE):
+                self.state.mass = 0
+                return self.state
             if (self.state.state == MitoStates.A and
                 not self.state.id in self.parent.getContextInformation(ENVProps.MODELS_TO_INACTIVATE)):
                 if(random.random() <= Parameters.PROB_FISSION):
@@ -451,6 +459,7 @@ class Mito(AtomicDEVS):
                                     self.state.mass = total_mass
                                     self.state.requested_state = MitoRequestedStates.FU
                                     self.state.fusionated_with = closest_mito.state.id
+                                    self.state.re_run = True
                                     break
                 return self.state
 
@@ -460,7 +469,7 @@ class Mito(AtomicDEVS):
         return self.state
 
     def __lt__(self, other):
-        return (self.state.id, self.state.state, self.state.re_run) < (other.state.id, other.state.state, other.state.re_run)
+        return ( self.state.state, self.state.re_run,self.state.id) < ( other.state.state, other.state.re_run, other.state.id)
 
     def outputFnc(self):
         """
@@ -476,6 +485,8 @@ class Mito(AtomicDEVS):
         ta = None
         if self.state.state == MitoStates.A:
             ta = self.parent.getContextInformation(ENVProps.RATE_MV)
+        if self.state.re_run:
+            ta = 0
         self.state.ta = ta
 
         return self.state.ta
@@ -488,7 +499,7 @@ class Cell(CoupledDEVS):
         l_to_inactivate = self.getContextInformation(ENVProps.MODELS_TO_INACTIVATE)
         l_to_activate = self.getContextInformation(ENVProps.MODELS_TO_ACTIVATE)
 
-        print("-------------- Removing inactive models ---------------")
+        # print("-------------- Removing inactive models ---------------")
         while l_to_inactivate:
             agent_id = l_to_inactivate.pop()
             search_model = None
@@ -497,15 +508,15 @@ class Cell(CoupledDEVS):
                     search_model = model
             try:
                 self.removeSubModel(search_model) 
+                self.models.remove(search_model)
                 print("Removed model %d" % search_model.state.id)
             except Exception as e:
                 print("Failed to remove model %d" % search_model.state.id)
 
+        # print("-------------- Finished removing inactive models ---------------")
 
-        print("-------------- Finished removing inactive models ---------------")
 
-
-        print("-------------- Activating new models -------------")
+        # print("-------------- Activating new models -------------")
         while l_to_activate:
             agent_info = l_to_activate.pop()
             agent_number = self.models[-1].state.id  + 1
@@ -515,14 +526,15 @@ class Cell(CoupledDEVS):
             agent.state.parent = agent_info.id
             agent.state.state = MitoStates.A
             agent.state.requested_state = MitoRequestedStates.N
-            agent.state.current_time = agent_info.current_time
+            agent.state.current_time = agent_info.current_time 
             agent.state.ta = 0
             agent.state.re_run = True
             agent.state.ff_timer = np.random.exponential(Parameters.RATE_FF)
 
             self.models.append(self.addSubModel(agent))
+            # self.saveChildrenState((agent.state, agent.state.current_time))
 
-        print("-------------- Finished activating new models ---------------")
+        self.updatePointsModel()
         return False
 
     def __init__(self, name=None):
@@ -577,7 +589,6 @@ class Cell(CoupledDEVS):
 
         for agent in agents:
             self.models.append(self.addSubModel(agent)) 
-            
 
 
         # TODO: Maybe I should load  agents_by_state initially here.
@@ -609,18 +620,7 @@ class Cell(CoupledDEVS):
         except Exception as e:
             print("ERROR INSERTANDO %s" % e)
 
-        # Maintain the list of the active agents. This is used to get the
-        # points of the active agents.
-
-        # remove from the old list.
-        # if old_state != new_state:
-        #     del self.agents_by_state[old_state][state[0].id]
-
-        points = np.array([np.array(x.state.position) for x in self.models])
-        try:
-            self.model.fit(points)
-        except Exception as e:
-            print("Empty Active agents list, wait until Fusion/Fission ends")
+        self.updatePointsModel()
 
         if state[0].requested_state == MitoRequestedStates.FI:
             self.l_to_active.append(state[0])
@@ -630,6 +630,12 @@ class Cell(CoupledDEVS):
             self.to_inactive[state[0].fusionated_with] = True
             self.l_to_inactive.append(state[0].fusionated_with)
 
+    def updatePointsModel(self): 
+        points = np.array([np.array(x.state.position) for x in self.models])
+        try:
+            self.model.fit(points)
+        except Exception as e:
+            print("Empty Active agents list, wait until Fusion/Fission ends") 
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Cell, self).getContextInformation(property)
@@ -708,3 +714,30 @@ class Cell(CoupledDEVS):
         """
         immChildren.sort()
         return immChildren[0]
+
+class LogAgent(AtomicDEVS):
+    def __init__(self):
+        self.set_values()
+        self.stats = []
+        self.name='logAgent'
+        self.current_time = 0 
+        self.elapsed = 0 
+        self.my_input = {}
+
+    def saveLoginfo(self): 
+        parent_items = self.parent.getContextInformation(ENVProps.AGENT_STATES).items()
+        (unique, counts) = np.unique(np.array([it[1][0] for it in parent_items]), return_counts=True) 
+        frequencies = dict(zip(unique, counts))
+        log_data = [frequencies.get(key, 0) for key in SIRStates.__dict__.values()]
+        log_data.insert(0, self.current_time) 
+        self.stats.append(log_data) 
+
+    def intTransition(self):
+        self.current_time += self.ta
+        self.saveLoginfo()
+
+    def timeAdvance(self):
+        return self.ta
+
+    def set_values(self):
+        self.ta = 1 
