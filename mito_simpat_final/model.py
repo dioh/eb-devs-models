@@ -73,7 +73,7 @@ def init_sqlite3(dbname):
 random.seed(0)
 
 class Parameters(object):
-    DB_NAME = "mito_experiment_q_ok.sqlite"
+    DB_NAME = "mito_experiment.sqlite"
     MASS_TOTAL = 300
     MASS_MAX = 3.0
     MASS_MIN = 0.5
@@ -160,17 +160,7 @@ class MitoState(object):
         self._mass = random.random() * (Parameters.MASS_MAX -
                       Parameters.MASS_MIN) + Parameters.MASS_MIN
 
-        # rnd = random.random()
-        # if rnd <= 0.15:
-        #     self._mass = random.random() * (1 -
-        #               Parameters.MASS_MIN) + Parameters.MASS_MIN
-        # elif rnd <= 0.45:
-        #     # Medium mito
-        #     self._mass = random.random() * (2 -
-        #               1.000000001) + 1.000000001
-        # else:
-        #     self._mass = random.random() * (Parameters.MASS_MAX -
-        #               2.000000001) + 2.000000001
+
 
         self._old_mass = None
 
@@ -417,7 +407,6 @@ class Mito(AtomicDEVS):
                 self.state.direction = self.get_new_direction(self.state, did_advance)
                 self.state.re_run = False
                 return self.state
-
         else:
             # Fusion/Fission cycle. Check if it is in the first or second phase.
             if not self.state.re_run:
@@ -528,7 +517,6 @@ class Mito(AtomicDEVS):
             ta = self.parent.getContextInformation(ENVProps.RATE_FF)
         elif self.state.state == MitoStates.A:
             ta = self.parent.getContextInformation(ENVProps.RATE_MV)
-
         self.state.ta = ta
 
         return self.state.ta
@@ -582,7 +570,6 @@ class Cell(CoupledDEVS):
             # Add to the agents lists
             self.agents.append(agent)
             agent_number += 1
-
         self.mass_total = Parameters.MASS_TOTAL - remaining_mass
 
         self.agents_by_state = {}
@@ -659,13 +646,10 @@ class Cell(CoupledDEVS):
             print("Empty Active agents list, wait until Fusion/Fission ends")
 
         if state[0].requested_state == MitoRequestedStates.FI:
-            # TODO: this name is mischieving
             self.inactive_models.append(state[0])
-
 
         if state[0].requested_state == MitoRequestedStates.FU and\
                 state[0].fusionated_with:
-            # TODO: this name is mischieving
             self.to_inactive[state[0].fusionated_with] = True
 
 
@@ -700,7 +684,6 @@ class Cell(CoupledDEVS):
 
             #i_closest_in_res = np.argmin(distances[np.nonzero(distances)])
             i_in_points_array = np.array(neighbors[1][0])[i_closest_in_res]
-            # TODO: This will return in an order. Not necesarily by distance.
             try:
                 models = np.array(self.agents_by_state[MitoStates.A].values())[i_in_points_array]
                 filtered_models = []
