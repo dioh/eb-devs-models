@@ -74,7 +74,7 @@ random.seed(0)
 
 class Parameters(object):
     DB_NAME = "mito_experiment.sqlite"
-    MASS_TOTAL = 30
+    MASS_TOTAL = 300
     MASS_MAX = 3.0
     MASS_MIN = 0.5
 
@@ -128,7 +128,15 @@ ENVProps = enum(FI='fissionate', AREAS='Nuclear areas',
                 MODELS_TO_INACTIVATE="Retrieves the list of models to kill",
                 MODELS_TO_ACTIVATE="Retrieves the list of models to create",
                 DIDFUSION="Consume fusion agent",
-                VELOCITIES="Low and high velocities for mitos")
+                VELOCITIES="Low and high velocities for mitos",
+                AGENT_STATES="Get agents states for logging")
+
+class LogState(object):
+    def __init__(self):
+        self.name = "logAgent"
+        self.id = 9999999
+        self.re_run = False
+        self.state = "none"
 
 
 
@@ -396,9 +404,6 @@ class Mito(AtomicDEVS):
         Internal Transition Function.
         """
         
-        # print("Int transition")
-        # print((self.state.current_time, self.state.id))
-        # print()
         self.state.current_time += self.state.ta
 
         ff_condition_time = self.state.current_time > 0 and (self.state.current_time %
@@ -509,7 +514,6 @@ class Cell(CoupledDEVS):
             try:
                 self.removeSubModel(search_model) 
                 self.models.remove(search_model)
-                print("Removed model %d" % search_model.state.id)
             except Exception as e:
                 print("Failed to remove model %d" % search_model.state.id)
 
@@ -543,7 +547,6 @@ class Cell(CoupledDEVS):
         """
         # Always call parent class' constructor FIRST:
         CoupledDEVS.__init__(self, name)
-        self.conn = init_sqlite3(Parameters.DB_NAME)
 
         self.mass_total = Parameters.MASS_TOTAL
 
@@ -587,6 +590,7 @@ class Cell(CoupledDEVS):
         # Instantiate the backup agents for fission and fusion.
         n_mito_agents = len(self.models)
 
+
         for agent in agents:
             self.models.append(self.addSubModel(agent)) 
 
@@ -602,23 +606,18 @@ class Cell(CoupledDEVS):
         points = np.array([np.array(x.state.position) for x in self.models])
         self.model.fit(points)
 
+        self.log_agent = LogAgent()
+        self.log_agent.OPorts = []
+        self.log_agent.IPorts = []
+        self.addSubModel(self.log_agent)
+        self.log_agent.saveLoginfo()
+
+
+
     def saveChildrenState(self, state):
         super(Cell, self).saveChildrenState(state)
-
-        state_to_save = state[0].as_dict_values()
-        state_to_save['duration'] = Parameters.DURATION
-        state_to_save['retry'] = Parameters.RETRY
-        state_to_save['fissionprob'] = Parameters.PROB_FISSION
-        # state_to_save['total_mass'] = self.mass_total
-        del state_to_save['fftimer']
-
-        columns = ', '.join(state_to_save.keys())
-        placeholders = ', '.join('?' * len(state_to_save))
-        sql = 'INSERT OR REPLACE INTO mitostate ({}) VALUES ({})'.format(columns, placeholders)
-        try:
-            self.conn.cursor().execute(sql, state_to_save.values())
-        except Exception as e:
-            print("ERROR INSERTANDO %s" % e)
+        if state[0].name == 'logAgent':
+            return
 
         self.updatePointsModel()
 
@@ -664,7 +663,9 @@ class Cell(CoupledDEVS):
             id_agent = kwargs['mito_id']
             self.to_inactive[id_agent] = False
 
-        # TODO: Poner las nuevas properties
+        if(property == ENVProps.AGENT_STATES):
+            return [m.state for m in self.models]
+
         if(property == ENVProps.NEIGHBOR):
             # FIXME: I should filter the inactives from the list.
             mass = kwargs['mass']
@@ -717,27 +718,41 @@ class Cell(CoupledDEVS):
 
 class LogAgent(AtomicDEVS):
     def __init__(self):
+        self.state = LogState()
         self.set_values()
         self.stats = []
         self.name='logAgent'
-        self.current_time = 0 
+        self.current_time = 0.5 
         self.elapsed = 0 
         self.my_input = {}
+        self.conn = init_sqlite3(Parameters.DB_NAME)
 
     def saveLoginfo(self): 
-        parent_items = self.parent.getContextInformation(ENVProps.AGENT_STATES).items()
-        (unique, counts) = np.unique(np.array([it[1][0] for it in parent_items]), return_counts=True) 
-        frequencies = dict(zip(unique, counts))
-        log_data = [frequencies.get(key, 0) for key in SIRStates.__dict__.values()]
-        log_data.insert(0, self.current_time) 
-        self.stats.append(log_data) 
+        models_states = self.parent.getContextInformation(ENVProps.AGENT_STATES)
+        for model_state in models_states: 
+            state_to_save = model_state.as_dict_values()
+            state_to_save['duration'] = Parameters.DURATION
+            state_to_save['retry'] = Parameters.RETRY
+            state_to_save['fissionprob'] = Parameters.PROB_FISSION
+            # state_to_save['total_mass'] = self.mass_total
+            del state_to_save['fftimer']
+
+            columns = ', '.join(state_to_save.keys())
+            placeholders = ', '.join('?' * len(state_to_save))
+            sql = 'INSERT OR REPLACE INTO mitostate ({}) VALUES ({})'.format(columns, placeholders)
+            try:
+                self.conn.cursor().execute(sql, state_to_save.values())
+            except Exception as e:
+                print("ERROR INSERTANDO %s" % e)
+
 
     def intTransition(self):
         self.current_time += self.ta
         self.saveLoginfo()
+        return self.state
 
     def timeAdvance(self):
         return self.ta
 
     def set_values(self):
-        self.ta = 1 
+        self.ta = 1

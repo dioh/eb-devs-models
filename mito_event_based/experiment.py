@@ -81,7 +81,7 @@ def run_single():
     sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
     sim.setDSDEVS(True) 
-    # sim.setVerbose(None)
+
     # sim.setSchedulerDiscreteTime()
     sim.setSchedulerMinimalList()
 
@@ -91,21 +91,22 @@ def run_single():
 
 
 RETRIES = 1
-FF_CICLES = 3
+FF_CICLES = 12
 
 def run_multiple():
     # parameters_comb_list = [{"PROB_FISSION": 0.5}, {"PROB_FISSION": 0.8}]
     parameters_comb_list = [
-            {"PROB_FISSION": 0.2, "RATE_INACTIVE_FF_WAKE":300, "RATE_FF":30},
-            {"PROB_FISSION": 0.5, "RATE_INACTIVE_FF_WAKE":300,"RATE_FF": 30},
-            {"PROB_FISSION": 0.8, "RATE_INACTIVE_FF_WAKE":300, "RATE_FF":30},
+            {"PROB_FISSION": 0.2, "RATE_INACTIVE_FF_WAKE":300, "RATE_FF":300},
+            {"PROB_FISSION": 0.5, "RATE_INACTIVE_FF_WAKE":300,"RATE_FF": 300},
+            {"PROB_FISSION": 0.8, "RATE_INACTIVE_FF_WAKE":300, "RATE_FF":300},
             # {"PROB_FISSION": 0, "RATE_INACTIVE_FF_WAKE":300,"RATE_FF": 300},
             # {"PROB_FISSION": 1, "RATE_INACTIVE_FF_WAKE":300,"RATE_FF": 300}
             ]
 
     run_combinations = list(itertools.product(parameters_comb_list, range(1, 1+ RETRIES)))
     for params, retry in tqdm.tqdm(run_combinations):
-        np.random.seed(1)
+
+        random.seed(0)
         for k, v in params.items():
             setattr(model.Parameters, k, v)
         DURATION = FF_CICLES * Parameters.RATE_FF
@@ -114,14 +115,14 @@ def run_multiple():
         environ = Cell(name="Mitto Fi Fu")
         sim = Simulator(environ)
         sim.setTerminationTime(Parameters.DURATION)
-        # sim.setClassicDEVS()
         sim.setDSDEVS(True) 
+        sim.setClassicDEVS()
         # sim.setVerbose(None)
         # sim.setSchedulerDiscreteTime()
         sim.setSchedulerMinimalList()
         sim.simulate()
-        environ.conn.commit()
-        environ.conn.close()
+        environ.log_agent.conn.commit()
+        environ.log_agent.conn.close()
 
 run_multiple()
 
