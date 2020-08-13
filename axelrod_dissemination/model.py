@@ -86,16 +86,16 @@ ActionState = enum(P='PROPAGATING', N="NORMAL")
 ENVProps = enum(DECAY='decay_rate', AGENT_STATES='agent_states', INFECT_RATE= 'infect_rate')
 
 class AgentState(object):
-    def __init__(self, name, id, state, kwargs):
+    def __init__(self, name, id):
         """TODO: to be defined1. """
         self._name = name
         self.current_time = 0.0
         self.id = id 
-        self.ta = reverse_exponential(1)
+        self.ta = 0
 
-        self.culture = [random.randint(1, 10) for i in range(Parameters.CULTURE_LENGTH)] 
+        self.culture = [np.random.randint(1, 10) for i in range(Parameters.CULTURE_LENGTH)] 
         self.neighbors_culture = {} 
-        self.state = ActionState.P 
+        self.action_state = ActionState.P 
 
     @property
     def name(self):
@@ -122,7 +122,8 @@ class LogAgent(AtomicDEVS):
         self.set_values()
         self.stats = []
         self.name='logAgent'
-        self.state.ta = ta
+        self.ta = 0.5
+        self.state = "LogAgent"
         self.current_time = 0 
         self.elapsed = 0 
         self.my_input = {}
@@ -156,31 +157,43 @@ class Agent(AtomicDEVS):
         self.in_ports_dict = {}
         self.out_ports_dict = {}
 
-    def add_connections(self, ag_id):
+    def add_connections(self, ag_id): 
         inport = self.addInPort(name=ag_id)
         self.in_ports_dict[ag_id] = inport
         outport = self.addOutPort(name=ag_id)
         self.out_ports_dict[ag_id] = outport
+        return inport, outport
 
-    def extTransition(self, inputs):
+    def extTransition(self, inputs): 
         self.state.current_time += self.elapsed
+        for k, v in inputs.items(): 
+            self.state.neighbors_culture[k.name] = v
         return self.state
 
     def intTransition(self):
         self.state.current_time += self.state.ta 
+        if self.state.action_state == ActionState.P:
+            self.state.action_state = ActionState.N
+        else:
+            pass
         return self.state
 
     def __lt__(self, other):
         return self.name < other.name 
 
     def outputFnc(self):
-        return self.state.outputFnc() 
+        ret = {}
+        if self.state.action_state == ActionState.P:
+            for outport in self.out_ports_dict.values():
+                ret[outport] = self.state.culture 
+
+        return ret
 
     def timeAdvance(self):
         ta = 0
-        if self.state.action == ActionState.P:
+        if self.state.action_state == ActionState.P:
             ta = 0
-        elif self.state.action == ActionState.N:
+        elif self.state.action_state == ActionState.N:
             ta = reverse_exponential(5) 
         self.state.ta = ta
         return self.state.ta
@@ -198,14 +211,12 @@ class Environment(CoupledDEVS):
         # Children states initialization
         self.create_topology() 
 
-        for i in self.agents:
-            self.G.add_node(i.state.id)
 
         log_agent = LogAgent()
         log_agent.OPorts = []
         log_agent.IPorts = []
         self.addSubModel(log_agent)
-        self.agents.append(log_agent)
+        self.agents[-1] = log_agent
         log_agent.saveLoginfo()
 
         self.points = None
@@ -213,19 +224,17 @@ class Environment(CoupledDEVS):
         self.updatecount = 0
 
     def create_topology(self):
-        G = nx.read_gml(Parameters.TOPOLOGY_FILE)
+        G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
         # G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
-        self.agents = []
+        self.agents = {}
         for i, node in G.nodes(data=True): 
-            self.agents.append(Agent(name="agent %s" % i, id=int(i), kwargs=node))
-
-
-        for agent in self.agents:
-            self.addSubModel(agent)
+            ag_id = int(i)
+            agent = Agent(name="agent %s" % i, id=ag_id, kwargs=node) 
+            self.agents[ag_id] = self.addSubModel(agent)
+            self.G.add_node(agent.state.id)
 
         for i in G.edges():
             if i[0] == i[1]: continue
-            add_connections
             ind0 = int(i[0])
             ind1 = int(i[1])
             a0 = self.agents[ind0]

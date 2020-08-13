@@ -74,72 +74,58 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 100
+DURATION = 1
 RETRIES = 1
 
-output_columns = ['t'] + model.SIRStates.__dict__.keys() + ['retry']
+# output_columns = ['t'] + model.SIRStates.__dict__.keys() + ['retry']
 
 def run_single(retry=0):
-    environ = Environment(name="SIR over CM")
+    environ = Environment(name='Env')
     sim = Simulator(environ)
-    sim.setTerminationTime(DURATION)
+    # sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
-    # sim.setVerbose(None)
+    sim.setVerbose(None)
     sim.simulate()
-    dataframe = pd.DataFrame(environ.agents[-1].stats)
-    dataframe['retry'] = retry
-    tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/csv_sir_model', delete=False)
-    dataframe.to_csv(tmpfile, header=False, index=False)
+    # dataframe = pd.DataFrame(environ.agents[-1].stats)
+    # dataframe['retry'] = retry
+    # tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/csv_sir_model', delete=False)
+    # dataframe.to_csv(tmpfile, header=False, index=False)
 
-    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+    # topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
 
-    outfilename = "results/sir_model_%s_emergence_%s_graph.gml" % (topology_name, Parameters.EMERGENT_MODEL)
-    nx.write_gml(environ.G, outfilename)
+    # outfilename = "results/sir_model_%s_emergence_%s_graph.gml" % (topology_name, Parameters.EMERGENT_MODEL)
+    # nx.write_gml(environ.G, outfilename)
 
-    states = [(ag.state.id, ag.state.infected, ag.state.infected_time, ag.state.infected_end_time) for ag in environ.agents[:-1] if ag.state.infected_time > -1]
-    outfilenamestates = "results/sir_model_%s_emergence_%s_rt.csv" % (topology_name, Parameters.EMERGENT_MODEL)
-    pd.DataFrame(states).to_csv(outfilenamestates)
+    # states = [(ag.state.id, ag.state.infected, ag.state.infected_time, ag.state.infected_end_time) for ag in environ.agents[:-1] if ag.state.infected_time > -1]
+    # outfilenamestates = "results/sir_model_%s_emergence_%s_rt.csv" % (topology_name, Parameters.EMERGENT_MODEL)
+    # pd.DataFrame(states).to_csv(outfilenamestates)
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_prueba.gml'
-    Parameters.EMERGENT_MODEL = False
+    Parameters.TOPOLOGY_FILE = 'topology/graph_n10.adj'
 
-    Parameters.NU = 50
-    Parameters.THETA = 20
-    Parameters.A = Parameters.NU
-    Parameters.B = 0
-    Parameters.CI = 10
-    Parameters.CV = 1
-    # Other available parameters:
-    # Parameters.N
-    # Parameters.INITIAL_PROB
-    # Parameters.INFECT_PROB
-    # Parameters.BETA_PROB
-    # Parameters.RHO_PROB
-    # Parameters.RECOV_THRHLD
     for i in progressbar.progressbar(range(RETRIES)):
         run_single(retry=i)
 
-    filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'csv_sir_model*')]
-    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    outfilename = "results/sir_model_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
-    fin = fileinput.input(filenames)
+    # filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'csv_sir_model*')]
+    # topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+    # outfilename = "results/sir_model_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
+    # fin = fileinput.input(filenames)
 
-    if not os.path.exists("results"):
-        os.mkdir("results")
+    # if not os.path.exists("results"):
+    #     os.mkdir("results")
 
-    with open(outfilename, 'w') as fout:
-        fout.write(",".join(output_columns))
-        fout.write('\n')
+    # with open(outfilename, 'w') as fout:
+    #     fout.write(",".join(output_columns))
+    #     fout.write('\n')
 
 
-    with open(outfilename, 'ab') as fout:
-        for filename in filenames:
-            with open(filename, 'rb') as readfile:
-                shutil.copyfileobj(readfile, fout)
+    # with open(outfilename, 'ab') as fout:
+    #     for filename in filenames:
+    #         with open(filename, 'rb') as readfile:
+    #             shutil.copyfileobj(readfile, fout)
 
-    for file in filenames: os.remove(file)
+    # for file in filenames: os.remove(file)
 
 
 run_multiple_retries()
