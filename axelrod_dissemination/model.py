@@ -42,19 +42,15 @@ def threshold(t, theta, a, b):
 
 class Parameters:
     TOPOLOGY_FILE = ""
+    CULTURE_LENGTH = 5
+
     EMERGENT_MODEL = False
     INITIAL_PROB = 0.05
     RHO_PROB = 4.0
     TW_SIZE = 5.0
     TW_TRHD = 5.0
     TW_BIN_SIZE = 15.0
-    # THETA = None
 
-    # A = 10.0
-    # B = 20.0
-    # NU = None # max vaccination rate
-
-    # From SIR V model
     NU = 10
     A = NU
     B = 0
@@ -85,77 +81,26 @@ def enum(**kwargs):
     obj.__dict__.update(kwargs)
     return obj
 
-SIRStates = enum(S='Susceptible',
-        E='Exposed',
-        I='Infected',
-        R='Recovered',
-        Q='Quarentained',
-        D='Deceased')
+ActionState = enum(P='PROPAGATING', N="NORMAL")
 
 ENVProps = enum(DECAY='decay_rate', AGENT_STATES='agent_states', INFECT_RATE= 'infect_rate')
 
 class AgentState(object):
-    def __init__(self, model, name, id, state, kwargs):
+    def __init__(self, name, id, state, kwargs):
         """TODO: to be defined1. """
         self._name = name
         self.current_time = 0.0
-        self.infected = 0
-        self.infected_time = -1
-        self.infected_end_time = -1
-        self.infected_by = -1
-
-        self.id = id
-        self._state = state
-        self.vaccinated = False
-        self._to_recover = False
-        self._emergence = False
-        self._to_vaccine = False
-        self.neighbors = -1
-        self.model = model
-        self.cost = 0
-        self.kwargs = kwargs
-
+        self.id = id 
         self.ta = reverse_exponential(1)
 
-        if model.state:
-            self.current_time = model.state.current_time 
-            self.infected = model.state.infected 
-            self.infected_time = model.state.infected_time 
-            self.infected_end_time = model.state.infected_end_time
-            self.infected_by = model.state.infected_by 
-            self.kwargs = model.state.kwargs
+        self.culture = [random.randint(1, 10) for i in range(Parameters.CULTURE_LENGTH)] 
+        self.neighbors_culture = {} 
+        self.state = ActionState.P 
 
     @property
     def name(self):
         """I'm the 'heading' property."""
         return self._name
-
-    @property
-    def state(self):
-        """I'm the 'heading' property."""
-        return self._state
-
-    @property
-    def to_recover(self):
-        """I'm the 'heading' property."""
-        return self._to_recover
-
-    @to_recover.setter
-    def to_recover(self, to_recover):
-        self._to_recover = to_recover
-
-    @property
-    def emergence(self):
-        """I'm the 'heading' property."""
-        return self._emergence
-
-    @emergence.setter
-    def emergence(self, emergence):
-        self._emergence = emergence
-
-    @state.setter
-    def state(self, state):
-        self._state = state
 
     @property
     def ta(self):
@@ -170,176 +115,26 @@ class AgentState(object):
         return(self._name, self._state)
 
     def __repr__(self):
-        return "Agent: %s, State: %s" % (str(self.name), str(self.state))
-
-
-    def intTransition(self):
-        return self
-
-    def extTransition(self, inputs = None):
-        return self
-
-    def outputFnc(self):
-        return {}
-
-
-class Susceptible(AgentState):
-    def intTransition(self):
-        super(Susceptible, self).intTransition() 
-        # TODO: Change vaccination clock
-        wake_up = reverse_exponential(0.1)
-        to_vaccinate = False #have_been_vacc < wake_up
-        new_state = self
-
-        if to_vaccinate:
-            new_state = Quarentained(self.model, self.name, self.id, SIRStates.Q)
-
-        new_state.set_values()
-        return new_state
-
-    def extTransition(self, inputs=None):
-        # self.current_time += self.ta
-        infected_id = int(inputs.values()[0].split('_')[-1]) 
-        new_state = Exposed(self.model, self.name, self.id, infected_id, SIRStates.E, kwargs=None)
-        new_state.set_values()
-        return new_state
-
-    def set_values(self):
-        self.ta = INFINITY #reverse_exponential(0.01)
-        self.cost += Parameters.CV/Parameters.NU * self.ta
-
-class Quarentained(AgentState):
-    def set_values(self):
-        self.cost += Parameters.CV
-        self.ta = INFINITY
-
-class Exposed(AgentState):
-    def __init__(self, model, name, id, infectious, state, kwargs=None): 
-        super(Exposed, self).__init__(model, name, id, state,kwargs=None)
-        self.infected_by = infectious 
-    
-    def intTransition(self):
-        super(Exposed, self).intTransition()
-        return_state = Infected(self.model, self.name, self.id, SIRStates.I, kwargs=None)
-        return_state.set_values()
-        return return_state
-
-    def set_values(self):
-        # TODO: Maybe should infect aswell
-        # With a probability some of the agents will spread the disease
-        self.ta = reverse_exponential(Parameters.ALPHA_RATE) 
-
-class Infected(AgentState):
-    def __init__(self, model, name, id, state, kwargs):
-        super(Infected, self).__init__(model, name, id, state, kwargs)
-        self.to_death = np.random.random() < (1 -  Parameters.RECOVERY_PROB)
-        self.to_recover = not self.to_death
-        self.to_infect = None
-        self.infected_time = self.current_time
-
-    def intTransition(self):
-        super(Infected, self).intTransition()
-
-        new_state = None
-        if self.to_infect:
-            new_state = self 
-        
-        elif self.to_death:
-            new_state = Deceased(self.model, self.name, self.id, SIRStates.D, kwargs=None)
-
-        elif self.to_recover:
-            new_state = Recovered(self.model, self.name, self.id, SIRStates.R, kwargs=None) 
-        else:
-            raise Exception("No case for Infected")
-
-        new_state.set_values()
-        return new_state
-
-    def outputFnc(self):
-        ret_val = {}
-        if self.to_infect and self.model.OPorts:
-        # if not (self.to_recover or self.to_death) and self.model.OPorts:
-            try:
-
-                self.infected = self.infected + 1
-                outport = np.random.choice(self.model.OPorts)
-                ret_val = {outport: "infect_%d" % self.id}
-            except Exception as e:
-                print(e)
-                print(self.state)
-        return ret_val
-
-    def set_values(self):
-        self.neighbors = 0
-
-        if self.model.OPorts:
-            self.neighbors = len(self.model.OPorts) 
-
-        if self.to_death: 
-            # Sort exponential race with death
-            exp_rate = Parameters.DEATH_MEAN_TIME + self.neighbors * Parameters.BETA_RATE
-            self.to_infect = np.random.random() < (self.neighbors * Parameters.BETA_RATE/exp_rate)
-            self.ta = reverse_exponential(exp_rate) 
-
-        if self.to_recover:
-            # Sort exponential race with death
-            exp_rate = Parameters.GAMMA_RATE + self.neighbors * Parameters.BETA_RATE
-            self.to_infect = np.random.random() < ((self.neighbors * Parameters.BETA_RATE)/exp_rate)
-            self.ta = reverse_exponential(exp_rate) 
-
-class Deceased(AgentState):
-    def __init__(self, model, name, id, state, kwargs=None):
-        super(Deceased, self).__init__(model, name, id, state, kwargs=None)
-        self.just_once = False
-        self.infected_end_time = self.current_time
-
-    def intTransition(self): 
-        self.just_once = True
-        self.set_values()
-        return self 
-    
-    def set_values(self):
-        if not self.just_once:
-            self.just_once = True
-            self.ta = 1
-        else:
-            self.ta = INFINITY
-
-class Recovered(AgentState):
-    def __init__(self, model, name, id, state, kwargs=None):
-        super(Recovered, self).__init__(model, name, id, state,kwargs=None)
-        self.just_once = False
-        self.infected_end_time = self.current_time
-
-    def intTransition(self): 
-        self.just_once = True
-        self.set_values()
-        return self 
-    
-    def set_values(self):
-        if not self.just_once:
-            self.just_once = True
-            self.ta = 1
-        else:
-            self.ta = INFINITY
-
+        return "Agent: %s, culture: %s" % (str(self.name), str(self.culture))
 
 class LogAgent(AtomicDEVS):
     def __init__(self):
         self.set_values()
         self.stats = []
         self.name='logAgent'
+        self.state.ta = ta
         self.current_time = 0 
         self.elapsed = 0 
         self.my_input = {}
 
     def saveLoginfo(self): 
-        parent_items = self.parent.getContextInformation(ENVProps.AGENT_STATES).items()
-        (unique, counts) = np.unique(np.array([it[1][0] for it in parent_items]), return_counts=True) 
-        frequencies = dict(zip(unique, counts))
-        log_data = [frequencies.get(key, 0) for key in SIRStates.__dict__.values()]
-        log_data.insert(0, self.current_time) 
-        self.stats.append(log_data) 
+        pass
+        # parent_items = self.parent.getContextInformation(ENVProps.AGENT_STATES).items()
+        # (unique, counts) = np.unique(np.array([it[1][0] for it in parent_items]), return_counts=True) 
+        # frequencies = dict(zip(unique, counts))
+        # log_data = [frequencies.get(key, 0) for key in SIRStates.__dict__.values()]
+        # log_data.insert(0, self.current_time) 
+        # self.stats.append(log_data) 
 
     def intTransition(self):
         self.current_time += self.ta
@@ -352,56 +147,42 @@ class LogAgent(AtomicDEVS):
         self.ta = 1 #0.1
 
 class Agent(AtomicDEVS):
-    """
-    A SIR Agent """
-
     def __init__(self, name=None, id=None, kwargs=None):
-        """
-        Constructor (parameterizable).
-        """
         # Always call parent class' constructor FIRST:
         AtomicDEVS.__init__(self, name)
         self.elapsed = 0 
-
         self.in_event = self.addInPort("in_event")
+        self.state = AgentState(name=name, id=id) 
+        self.in_ports_dict = {}
+        self.out_ports_dict = {}
 
-        # The initial state of the agent.
-        state = Infected(self, self.name, id, SIRStates.I, kwargs) if np.random.random() < Parameters.INITIAL_PROB \
-                                else Susceptible(self, self.name, id, SIRStates.S, kwargs)
-        self.state = state
+    def add_connections(self, ag_id):
+        inport = self.addInPort(name=ag_id)
+        self.in_ports_dict[ag_id] = inport
+        outport = self.addOutPort(name=ag_id)
+        self.out_ports_dict[ag_id] = outport
 
     def extTransition(self, inputs):
-        """
-        External Transition Function.
-        """
-        self.state.current_time += self.model.elapsed
-        self.state = self.state.extTransition(inputs)
+        self.state.current_time += self.elapsed
         return self.state
 
     def intTransition(self):
-        """
-        Internal Transition Function.
-        """ 
-        self.state.current_time += self.state.ta
-        self.state = self.state.intTransition()
+        self.state.current_time += self.state.ta 
         return self.state
 
     def __lt__(self, other):
-        return self.name < other.name
-
+        return self.name < other.name 
 
     def outputFnc(self):
-        return self.state.outputFnc()
-
+        return self.state.outputFnc() 
 
     def timeAdvance(self):
-        """
-        Time-Advance Function.
-        """
-
-        # if self.state.state == SIRStates.I
-        # Compute 'ta', the time to the next scheduled internal transition,
-        # based (typically) on current State.
+        ta = 0
+        if self.state.action == ActionState.P:
+            ta = 0
+        elif self.state.action == ActionState.N:
+            ta = reverse_exponential(5) 
+        self.state.ta = ta
         return self.state.ta
 
 
@@ -414,25 +195,11 @@ class Environment(CoupledDEVS):
         CoupledDEVS.__init__(self, name)
         self.G = nx.Graph()
 
-        # Declare the coupled model's output ports:
-        # Autonomous, so no output ports
-
-        # Declare the coupled model's sub-models:
-
-
         # Children states initialization
         self.create_topology() 
 
-        self.time_window = {}
-        self.agent_states = {}
-        # Load the agent states dict:
-        for ag in self.agents:
-            self.agent_states[ag.state.name] = (ag.state.state , ag.state.emergence, ag.state.vaccinated)
-
         for i in self.agents:
             self.G.add_node(i.state.id)
-
-        # self.stats = []
 
         log_agent = LogAgent()
         log_agent.OPorts = []
@@ -440,12 +207,6 @@ class Environment(CoupledDEVS):
         self.addSubModel(log_agent)
         self.agents.append(log_agent)
         log_agent.saveLoginfo()
-
-        # (unique, counts) = np.unique(np.array([it[1][0] for it in self.agent_states.items()]), return_counts=True) 
-        # frequencies = dict(zip(unique, counts))
-        # log_data = [frequencies.get(key, 0) for key in SIRStates.__dict__.values()]
-        # log_data.insert(0, 0) 
-        # self.stats.append(log_data)
 
         self.points = None
         self.model = None
@@ -464,45 +225,42 @@ class Environment(CoupledDEVS):
 
         for i in G.edges():
             if i[0] == i[1]: continue
+            add_connections
             ind0 = int(i[0])
             ind1 = int(i[1])
-            a1 = self.agents[ind0]
-            a2 = self.agents[ind1]
-            out1 = a1.addOutPort("from%d-to-%d" % (ind0, ind1))
-            out2 = a2.addOutPort("from%d-to-%d" % (ind1, ind0))
+            a0 = self.agents[ind0]
+            a1 = self.agents[ind1]
+            
+            i0, o0 = a0.add_connections(ind1)
+            i1, o1 = a1.add_connections(ind0)
 
-            self.connectPorts(out1, a2.in_event)
-            self.connectPorts(out2, a1.in_event)
-
-        for ag in self.agents:
-            ag.state.neighbors = len(ag.OPorts)
-            if ag.state.state == SIRStates.I:
-                ag.state.set_values()
+            self.connectPorts(o0, i1)
+            self.connectPorts(o1, i0)
 
     def saveChildrenState(self, state):
         super(Environment, self).saveChildrenState(state)
-        if not state[0]:
-            return
-        if state[0].state == SIRStates.I:
-            bin = int(state[0].current_time) / Parameters.TW_BIN_SIZE
-            self.time_window[bin] = self.time_window.get(bin, 0) + 1
+        # if not state[0]:
+        #     return
+        # if state[0].state == SIRStates.I:
+        #     bin = int(state[0].current_time) / Parameters.TW_BIN_SIZE
+        #     self.time_window[bin] = self.time_window.get(bin, 0) + 1
 
-        self.targets = {}
-        if state[0].state == SIRStates.E:
-            node_from = state[0].infected_by
-            node_to = state[0].id
+        # self.targets = {}
+        # if state[0].state == SIRStates.E:
+        #     node_from = state[0].infected_by
+        #     node_to = state[0].id
 
-            current_time = state[0].current_time
-            self.G.add_edge(node_from, node_to,
-                    timestamp=current_time)
-            self.G.nodes[node_to]['start'] = current_time
+        #     current_time = state[0].current_time
+        #     self.G.add_edge(node_from, node_to,
+        #             timestamp=current_time)
+        #     self.G.nodes[node_to]['start'] = current_time
 
-        if state[0].state in (SIRStates.D, SIRStates.R) :
-            node = state[0].id
-            current_time = state[0].current_time
-            self.G.nodes[node]['end'] = current_time
+        # if state[0].state in (SIRStates.D, SIRStates.R) :
+        #     node = state[0].id
+        #     current_time = state[0].current_time
+        #     self.G.nodes[node]['end'] = current_time
 
-        self.agent_states[state[0].name] = (state[0].state, state[0].emergence, state[0].vaccinated)
+        # self.agent_states[state[0].name] = (state[0].state, state[0].emergence, state[0].vaccinated)
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
