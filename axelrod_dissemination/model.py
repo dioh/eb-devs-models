@@ -129,13 +129,9 @@ class LogAgent(AtomicDEVS):
         self.my_input = {}
 
     def saveLoginfo(self): 
-        pass
-        # parent_items = self.parent.getContextInformation(ENVProps.AGENT_STATES).items()
-        # (unique, counts) = np.unique(np.array([it[1][0] for it in parent_items]), return_counts=True) 
-        # frequencies = dict(zip(unique, counts))
-        # log_data = [frequencies.get(key, 0) for key in SIRStates.__dict__.values()]
-        # log_data.insert(0, self.current_time) 
-        # self.stats.append(log_data) 
+        number_of_cultures = self.parent.getContextInformation(ENVProps.AGENT_STATES)
+        stats = (self.current_time, number_of_cultures)
+        self.stats.append(stats) 
 
     def intTransition(self):
         self.current_time += self.ta
@@ -164,6 +160,20 @@ class Agent(AtomicDEVS):
         self.out_ports_dict[ag_id] = outport
         return inport, outport
 
+    def similarity_with(self, neighbor_culture):
+        return sum(np.array(neighbor_culture) == np.array(self.state.culture))/float(len(self.state.culture))
+
+    def mix_culture(self, neighbor_culture):
+        same_culture_index = np.array(neighbor_culture) != np.array(self.state.culture)
+        indexes = np.where(same_culture_index == True)
+        rand_cult = np.random.choice(indexes[0], 1)[0]
+        self.state.culture[rand_cult] = neighbor_culture[rand_cult]
+
+    def get_neighbor(self):
+        neighbor_key = np.random.choice(list(self.state.neighbors_culture.keys()), 1)[0]
+        neighbor_culture = self.state.neighbors_culture[neighbor_key]
+        return neighbor_culture
+
     def extTransition(self, inputs): 
         self.state.current_time += self.elapsed
         for k, v in inputs.items(): 
@@ -175,7 +185,11 @@ class Agent(AtomicDEVS):
         if self.state.action_state == ActionState.P:
             self.state.action_state = ActionState.N
         else:
-            pass
+            neighbor_culture = self.get_neighbor()
+            similarity = self.similarity_with(neighbor_culture)
+            if similarity < 1 and np.random.random() < similarity:
+                self.mix_culture(neighbor_culture)
+                self.state.action_state = ActionState.P
         return self.state
 
     def __lt__(self, other):
@@ -274,17 +288,10 @@ class Environment(CoupledDEVS):
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
 
-        if(property == ENVProps.DECAY):
-            current_time = args[0]
-            if len(self.time_window.keys()) <=2:
-                return 0
-
-            _, first, second = sorted(self.time_window.keys(), reverse=True)[0:3]
-
-            return self.time_window[first] - self.time_window[second] 
-
         if(property == ENVProps.AGENT_STATES):
-            return self.agent_states
+            cultures = [m.state.culture for m in self.agents.values()[:-1]]
+            unique_cultures = np.unique(np.array(cultures), axis=0)
+            return len(unique_cultures)
 
 
     def select(self, immChildren):

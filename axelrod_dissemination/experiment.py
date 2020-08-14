@@ -74,7 +74,7 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 1
+DURATION = 500
 RETRIES = 1
 
 # output_columns = ['t'] + model.SIRStates.__dict__.keys() + ['retry']
@@ -82,14 +82,14 @@ RETRIES = 1
 def run_single(retry=0):
     environ = Environment(name='Env')
     sim = Simulator(environ)
-    # sim.setTerminationTime(DURATION)
+    sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
-    sim.setVerbose(None)
+    # sim.setVerbose(None)
     sim.simulate()
-    # dataframe = pd.DataFrame(environ.agents[-1].stats)
-    # dataframe['retry'] = retry
-    # tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/csv_sir_model', delete=False)
-    # dataframe.to_csv(tmpfile, header=False, index=False)
+    dataframe = pd.DataFrame(environ.agents[-1].stats)
+    dataframe['retry'] = retry
+    tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/axelrod_model', delete=False)
+    dataframe.to_csv(tmpfile, header=False, index=False)
 
     # topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
 
@@ -102,7 +102,7 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'topology/graph_n10.adj'
+    Parameters.TOPOLOGY_FILE = 'topology/grafo_grande'
 
     for i in progressbar.progressbar(range(RETRIES)):
         run_single(retry=i)
