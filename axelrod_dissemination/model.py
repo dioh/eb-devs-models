@@ -208,7 +208,7 @@ class Agent(AtomicDEVS):
         if self.state.action_state == ActionState.P:
             ta = 0
         elif self.state.action_state == ActionState.N:
-            ta = reverse_exponential(5) 
+            ta = reverse_exponential(5) + 1
         self.state.ta = ta
         return self.state.ta
 

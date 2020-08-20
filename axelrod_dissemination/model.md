@@ -12,5 +12,28 @@ Agents state's change with interactions. Given an agent and its linked neighbors
 2. No central authority. Consistent with the agent-based approach is the lack of any central coordinating agent in the model. It is certainly true that important aspects of cultures sometimes come to be standardized, canonized, and disseminated by powerful authorities such as church fathers, Webster, and Napoleon. The present model, however, deals with the process of social influence before (or alongside of) the actions of such authorities.  It seeks to understand and stability can just how much of cultural emergence to the coordinating be explained without resorting influence of centralized authority.
 3. Adaptive rather than rational agents. The individuals are assumed to follow simple rules about giving and receiving influence. These rules are not necessarily derivable from any of rational calculation based on costs and benefits or forward-looking principles strategic analysis typical of game theory. Instead, the agents simply adapt to their environmen
 
+Mapping to EB-DEVS
+====================
+
+
+AgentState:
+  {neighbor_id: similarity}
+  {neighbor_id: culture}
+  self.culture
+  
+Init:
+  ta = 0
+  state = INIT
+  share culture
+
+Interna:
+  elegir un vecino
+  tirar un valor random
+    si es menor que la similaridad entre ellos (cantidad de posiciones iguales de cultura / longitud)
+      interactuar dejando igual una de los dos.
+      Lo mas sencillo, cambiar "self" y avisarle a los vecinos.
+
+Extena:
+  actualizar {neighbor_id: culture}
 
 

@@ -74,7 +74,7 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 500
+DURATION = 3000
 RETRIES = 1
 
 # output_columns = ['t'] + model.SIRStates.__dict__.keys() + ['retry']
@@ -102,7 +102,7 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'topology/grafo_grande'
+    Parameters.TOPOLOGY_FILE = 'topology/cube_lattice.adj'
 
     for i in progressbar.progressbar(range(RETRIES)):
         run_single(retry=i)
