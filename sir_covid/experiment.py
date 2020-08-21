@@ -17,7 +17,7 @@
 from pypdevs.simulator import Simulator
 import itertools
 import os
-import progressbar
+import tqdm
 import pandas as pd
 import networkx as nx
 import fileinput
@@ -118,7 +118,7 @@ def run_multiple_retries():
     # Parameters.BETA_PROB
     # Parameters.RHO_PROB
     # Parameters.RECOV_THRHLD
-    for i in progressbar.progressbar(range(RETRIES)):
+    for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)
 
     filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'csv_sir_model*')]
