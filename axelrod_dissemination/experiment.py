@@ -17,8 +17,8 @@
 from pypdevs.simulator import Simulator
 import itertools
 import os
-import progressbar
 import pandas as pd
+import tqdm
 import networkx as nx
 import fileinput
 import tempfile
@@ -104,7 +104,7 @@ def run_single(retry=0):
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'topology/cube_lattice.adj'
 
-    for i in progressbar.progressbar(range(RETRIES)):
+    for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)
 
     # filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'csv_sir_model*')]

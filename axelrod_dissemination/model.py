@@ -262,28 +262,6 @@ class Environment(CoupledDEVS):
 
     def saveChildrenState(self, state):
         super(Environment, self).saveChildrenState(state)
-        # if not state[0]:
-        #     return
-        # if state[0].state == SIRStates.I:
-        #     bin = int(state[0].current_time) / Parameters.TW_BIN_SIZE
-        #     self.time_window[bin] = self.time_window.get(bin, 0) + 1
-
-        # self.targets = {}
-        # if state[0].state == SIRStates.E:
-        #     node_from = state[0].infected_by
-        #     node_to = state[0].id
-
-        #     current_time = state[0].current_time
-        #     self.G.add_edge(node_from, node_to,
-        #             timestamp=current_time)
-        #     self.G.nodes[node_to]['start'] = current_time
-
-        # if state[0].state in (SIRStates.D, SIRStates.R) :
-        #     node = state[0].id
-        #     current_time = state[0].current_time
-        #     self.G.nodes[node]['end'] = current_time
-
-        # self.agent_states[state[0].name] = (state[0].state, state[0].emergence, state[0].vaccinated)
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
