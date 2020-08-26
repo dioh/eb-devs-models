@@ -75,6 +75,9 @@ class Solver(object):
         :param trans: iterable containing all models and their requested transition
         :param clock: the time at which the transition must happen
         """
+
+        x_bag = []
+
         t, age = clock
         partialmod = []
         for aDEVS in trans:
@@ -160,8 +163,10 @@ class Solver(object):
                     "Problem in transitioning dictionary: unknown element %s" 
                     % ttype)
 
-            # Parent state transition function
-            aDEVS.parent.saveChildrenState((aDEVS.state, aDEVS.time_last))
+            # EB-DEVS y_up collection.
+            y_up = aDEVS.__dict__.get("y_up")
+            if y_up:
+                x_bag.append(y_up)
 
             ta = aDEVS.timeAdvance()
             aDEVS.time_last = clock
@@ -211,6 +216,11 @@ class Solver(object):
       
             # Clear the bag
             aDEVS.my_input = {}
+
+        # Finally, call the deltaGTransition for EB-DEVS Extension
+        # TODO: Call with parent's parent state.
+        if x_bag:
+            self.model.globalTransition(clock, x_bag)
 
         self.server.flushQueuedMessages()
 
