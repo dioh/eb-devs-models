@@ -83,7 +83,7 @@ def enum(**kwargs):
 
 ActionState = enum(P='PROPAGATING', N="NORMAL")
 
-ENVProps = enum(DECAY='decay_rate', AGENT_STATES='agent_states', INFECT_RATE= 'infect_rate')
+ENVProps = enum(DECAY='decay_rate', NUMBER_OF_CULTURES='agent_states', INFECT_RATE= 'infect_rate')
 
 class AgentState(object):
     def __init__(self, name, id):
@@ -129,7 +129,7 @@ class LogAgent(AtomicDEVS):
         self.my_input = {}
 
     def saveLoginfo(self): 
-        number_of_cultures = self.parent.getContextInformation(ENVProps.AGENT_STATES)
+        number_of_cultures = self.parent.getContextInformation(ENVProps.NUMBER_OF_CULTURES)
         stats = (self.current_time, number_of_cultures)
         self.stats.append(stats) 
 
@@ -152,6 +152,8 @@ class Agent(AtomicDEVS):
         self.state = AgentState(name=name, id=id) 
         self.in_ports_dict = {}
         self.out_ports_dict = {}
+
+        self.y_up = (self.state.id, self.state.culture)
 
     def add_connections(self, ag_id): 
         inport = self.addInPort(name=ag_id)
@@ -182,8 +184,10 @@ class Agent(AtomicDEVS):
 
     def intTransition(self):
         self.state.current_time += self.state.ta 
+        self.y_up = None
         if self.state.action_state == ActionState.P:
             self.state.action_state = ActionState.N
+            self.y_up = (self.state.id, self.state.culture)
         else:
             neighbor_culture = self.get_neighbor()
             similarity = self.similarity_with(neighbor_culture)
@@ -208,7 +212,7 @@ class Agent(AtomicDEVS):
         if self.state.action_state == ActionState.P:
             ta = 0
         elif self.state.action_state == ActionState.N:
-            ta = reverse_exponential(5) + 1
+            ta = 1 #reverse_exponential(5) + 1
         self.state.ta = ta
         return self.state.ta
 
@@ -260,15 +264,20 @@ class Environment(CoupledDEVS):
             self.connectPorts(o0, i1)
             self.connectPorts(o1, i0)
 
-    def saveChildrenState(self, state):
-        super(Environment, self).saveChildrenState(state)
+        self.cultures = {}
+
+    def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
+        super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
+        self.cultures.update(x_b_micro)
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
 
-        if(property == ENVProps.AGENT_STATES):
-            cultures = [m.state.culture for m in self.agents.values()[:-1]]
-            unique_cultures = np.unique(np.array(cultures), axis=0)
+        if(property == ENVProps.NUMBER_OF_CULTURES):
+            # cultures = [m.state.culture for m in self.agents.values()[:-1]]
+            unique_cultures = []
+            if self.cultures:
+                unique_cultures = np.unique(np.array(self.cultures.values()), axis=0) 
             return len(unique_cultures)
 
 

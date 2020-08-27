@@ -505,7 +505,7 @@ class CoupledDEVS(BaseDEVS):
         self._children_states = None
 
 
-    def globalTransition(self, y_up, *args, **kwargs):
+    def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         """
         Save the children state if using the parent state.
         If this behavior is not wanted and implementors avoid this method nothing happens.

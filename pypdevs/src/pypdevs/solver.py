@@ -164,7 +164,7 @@ class Solver(object):
                     % ttype)
 
             # EB-DEVS y_up collection.
-            y_up = aDEVS.__dict__.get("y_up")
+            y_up = aDEVS.model.__dict__.get("y_up")
             if y_up:
                 x_bag.append(y_up)
 
@@ -220,7 +220,7 @@ class Solver(object):
         # Finally, call the deltaGTransition for EB-DEVS Extension
         # TODO: Call with parent's parent state.
         if x_bag:
-            self.model.globalTransition(clock, x_bag)
+            aDEVS.parent.globalTransition(t, x_bag)
 
         self.server.flushQueuedMessages()
 
