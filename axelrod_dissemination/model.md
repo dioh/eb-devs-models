@@ -65,3 +65,8 @@ ExtTransition:
   update {neighbor_id: culture}
 
 
+Extension idea
+================
+
+* Use the hegemonic culture to mix towards it
+

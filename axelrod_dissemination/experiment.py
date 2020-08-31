@@ -25,6 +25,8 @@ import tempfile
 import fnmatch
 import shutil
 import numpy as np
+import seaborn as sns
+from matplotlib import pyplot as plt
 # Import the model to be simulated
 from model import Environment, Parameters
 
@@ -74,10 +76,9 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 3000
-RETRIES = 1
+DURATION = 100
+RETRIES = 3
 
-# output_columns = ['t'] + model.SIRStates.__dict__.keys() + ['retry']
 
 def run_single(retry=0):
     environ = Environment(name='Env')
@@ -102,30 +103,40 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'topology/cube_lattice.adj'
+    Parameters.TOPOLOGY_FILE = 'topology/lattice.adj'
 
     for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)
 
-    # filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'csv_sir_model*')]
-    # topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    # outfilename = "results/sir_model_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
-    # fin = fileinput.input(filenames)
+    filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'axelrod_model*')]
+    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+    outfilename = "results/axelrod_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
+    fin = fileinput.input(filenames)
 
-    # if not os.path.exists("results"):
-    #     os.mkdir("results")
+    if not os.path.exists("results"):
+        os.mkdir("results")
 
-    # with open(outfilename, 'w') as fout:
-    #     fout.write(",".join(output_columns))
-    #     fout.write('\n')
+    output_columns = ['t', 'number_of_cultures', 'retry']
+    with open(outfilename, 'w') as fout:
+        fout.write(",".join(output_columns))
+        fout.write('\n')
 
 
-    # with open(outfilename, 'ab') as fout:
-    #     for filename in filenames:
-    #         with open(filename, 'rb') as readfile:
-    #             shutil.copyfileobj(readfile, fout)
+    with open(outfilename, 'ab') as fout:
+        for filename in filenames:
+            with open(filename, 'rb') as readfile:
+                shutil.copyfileobj(readfile, fout)
 
-    # for file in filenames: os.remove(file)
+    for file in filenames: os.remove(file)
+
+    data = pd.read_csv(outfilename, header=0)
+    filtered_data = data[(data.t > 0)]
+    plt.figure(figsize=(12,8))
+
+    ax = sns.pointplot(x="t", y="number_of_cultures", data=filtered_data, ci="sd", capsize=.2, dodge=True)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+    fig_filename = outfilename.replace('csv', 'png')
+    ax.get_figure().savefig(fig_filename)
 
 
 run_multiple_retries()

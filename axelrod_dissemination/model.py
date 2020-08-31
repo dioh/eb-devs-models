@@ -122,7 +122,7 @@ class LogAgent(AtomicDEVS):
         self.set_values()
         self.stats = []
         self.name='logAgent'
-        self.ta = 0.5
+        self.ta = 1
         self.state = "LogAgent"
         self.current_time = 0 
         self.elapsed = 0 
