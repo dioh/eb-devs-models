@@ -268,10 +268,6 @@ class Environment(CoupledDEVS):
             self.connectPorts(out1, a2.in_event)
             self.connectPorts(out2, a1.in_event)
 
-        for i in self.agents:
-            for p in i.OPorts:
-                print("Agent: %s, port %s" % (i.state.name, p.getPortName()))
-
 
     def saveChildrenState(self, state):
         super(Environment, self).saveChildrenState(state)
