@@ -31,10 +31,10 @@ class Agent(AtomicDEVS):
         self.name = "AtomicAgent"
         self.current_time = 0.0
         self.id = id
-        self.ta = 0
+        self.ta = 1
         self.elapsed = 0
         self.state = True
-        self.y_up = (self.id, self.state)
+        self.y_up = self.state
 
     def extTransition(self, inputs): 
         return
@@ -43,6 +43,7 @@ class Agent(AtomicDEVS):
         self.current_time += self.ta 
         self.state = not self.state
         self.y_up = self.state
+        print "state", self.state
         print self.parent.getContextInformation()
         return self.state
 
@@ -66,15 +67,17 @@ class Parent(CoupledDEVS):
         self.addSubModel(agent)
         self.children_state = None
         self.parent_state = None
+        self.y_up = None
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Parent, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
         self.children_state = x_b_micro
+        self.y_up = self.children_state
         self.parent_state = self.parent.getContextInformation('STATE')
         return
 
     def getContextInformation(self, *args, **kwargs):
-        return {"children": self.children_state, "grandparent": self.parent_state}
+        return {"parent": self.children_state, "grandparent": self.parent_state}
 
 class GrandParent(CoupledDEVS):
     def __init__(self, name=None):
@@ -82,14 +85,14 @@ class GrandParent(CoupledDEVS):
         parent = Parent()
         self.addSubModel(parent)
         self.children_state = None
+        self.parent_state = None
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(GrandParent, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
         self.children_state = x_b_micro
-        self.parent_state = self.parent.getContextInformation()
         return
 
-    def getContextInformation(self, property, *args, **kwargs):
+    def getContextInformation(self, *args, **kwargs):
         return self.children_state
 
     def select(self, immChildren):

@@ -76,7 +76,7 @@ from model import GrandParent
 
 import model
 
-DURATION = 3
+DURATION = 6
 RETRIES = 1
 
 environ = GrandParent(name='Env')
