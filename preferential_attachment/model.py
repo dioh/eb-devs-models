@@ -150,6 +150,8 @@ class Agent(AtomicDEVS):
         self.in_ports_dict = {}
         self.out_ports_dict = {}
 
+        self.already_run = False
+
         self.y_up = (self.state.id, len(self.out_ports_dict.keys()))
 
 
@@ -166,6 +168,7 @@ class Agent(AtomicDEVS):
     def intTransition(self):
         self.state.current_time += self.state.ta 
         self.y_up = (self.state.id, len(self.out_ports_dict.keys()))
+        self.already_run = True
         return self.state
 
     def __lt__(self, other):
@@ -177,11 +180,12 @@ class Agent(AtomicDEVS):
 
     def timeAdvance(self):
         self.state.ta = self.state.id
-        if self.state.current_time >= self.state.id:
+        if self.already_run:
             self.state.ta = INFINITY
         return self.state.ta
 
     def modelTransition(self, state):
+        state['current_time'] = self.state.current_time
         return True 
 
 class Environment(CoupledDEVS):
@@ -221,6 +225,7 @@ class Environment(CoupledDEVS):
             agent = Agent(name="agent %s" % i, id=ag_id, kwargs=node) 
             self.agents[ag_id] = self.addSubModel(agent)
 
+
         # For each edge in the graph, connect the respective atomic models
         for i in self.G.edges():
             # Avoid self-loops
@@ -236,6 +241,9 @@ class Environment(CoupledDEVS):
 
                 self.connectPorts(o0, i1)
                 self.connectPorts(o1, i0)
+
+        self.G = nx.relabel.convert_node_labels_to_integers(self.G)
+
 
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
@@ -253,8 +261,7 @@ class Environment(CoupledDEVS):
         # Doesn't really matter, as they don't influence each other
         return immChildren[0]
 
-    def modelTransition(self, state):
-
+    def modelTransition(self, state): 
         # Sort a random value from the weighted list of nodes
         grados = self.nodes_degrees.values()
         xk = np.array(grados)
@@ -263,8 +270,9 @@ class Environment(CoupledDEVS):
         selected_agent_id = np.random.choice(self.nodes_degrees.keys(), 1, p=pk)[0]
 
         # Create a new node
-        current_time = self.agents[selected_agent_id].state.current_time
-        new_ag_id = len(self.agents)
+        current_time = state['current_time']
+        # There is a logging agent that we need to leave out from the list of ids.
+        new_ag_id = len(self.agents) - 1
 
         new_agent = Agent(name="agent %s" % new_ag_id, id=new_ag_id,
                 kwargs={'current_time':current_time}) 
@@ -287,8 +295,8 @@ class Environment(CoupledDEVS):
 
         # Update G
         self.G.add_node(int(new_ag_id))
-        self.G.add_edge(new_ag_id, selected_agent_id, timestamp=current_time)
-        self.G.nodes[new_ag_id]['start'] = current_time
+        self.G.add_edge(int(new_ag_id), int(selected_agent_id), timestamp=current_time)
+        self.G.nodes[int(new_ag_id)]['start'] = current_time
 
         return False 
 
