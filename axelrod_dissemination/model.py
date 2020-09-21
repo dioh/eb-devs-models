@@ -128,6 +128,9 @@ class LogAgent(AtomicDEVS):
         self.elapsed = 0 
         self.my_input = {}
 
+    def __lt__(self, other):
+        return self.name < other.name 
+
     def saveLoginfo(self): 
         number_of_cultures = self.parent.getContextInformation(ENVProps.NUMBER_OF_CULTURES)
         stats = (self.current_time, number_of_cultures)
@@ -277,7 +280,7 @@ class Environment(CoupledDEVS):
             # cultures = [m.state.culture for m in self.agents.values()[:-1]]
             unique_cultures = []
             if self.cultures:
-                unique_cultures = np.unique(np.array(self.cultures.values()), axis=0) 
+                unique_cultures = np.unique(np.array(list(self.cultures.values())), axis=0) 
             return len(unique_cultures)
 
 
