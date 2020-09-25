@@ -15,6 +15,7 @@
 # TODO: Verificar los elapsed y current time
 
 import sys
+# import stats
 import numpy as np
 import pandas as pd
 import scipy.spatial.distance as distance
@@ -86,16 +87,12 @@ ActionState = enum(P='PROPAGATING', N="NORMAL")
 ENVProps = enum(DECAY='decay_rate', NUMBER_OF_CULTURES='agent_states', INFECT_RATE= 'infect_rate')
 
 class AgentState(object):
-    def __init__(self, name, id):
+    def __init__(self, name, id, current_time = 0):
         """TODO: to be defined1. """
         self._name = name
-        self.current_time = 0.0
-        self.id = id 
-        self.ta = 0
-
-        self.culture = [np.random.randint(1, 10) for i in range(Parameters.CULTURE_LENGTH)] 
-        self.neighbors_culture = {} 
-        self.action_state = ActionState.P 
+        self.current_time = current_time
+        self.id = int(id)
+        self.ta = self.id 
 
     @property
     def name(self):
@@ -128,9 +125,6 @@ class LogAgent(AtomicDEVS):
         self.elapsed = 0 
         self.my_input = {}
 
-    def __lt__(self, other):
-        return self.name < other.name 
-
     def saveLoginfo(self): 
         number_of_cultures = self.parent.getContextInformation(ENVProps.NUMBER_OF_CULTURES)
         stats = (self.current_time, number_of_cultures)
@@ -152,11 +146,14 @@ class Agent(AtomicDEVS):
         AtomicDEVS.__init__(self, name)
         self.elapsed = 0 
         self.in_event = self.addInPort("in_event")
-        self.state = AgentState(name=name, id=id) 
+        self.state = AgentState(name=name, id=id, current_time=kwargs.get('current_time', 0.0))
         self.in_ports_dict = {}
         self.out_ports_dict = {}
 
-        self.y_up = (self.state.id, self.state.culture)
+        self.already_run = False
+
+        self.y_up = (self.state.id, len(self.out_ports_dict.keys()))
+
 
     def add_connections(self, ag_id): 
         inport = self.addInPort(name=ag_id)
@@ -165,38 +162,13 @@ class Agent(AtomicDEVS):
         self.out_ports_dict[ag_id] = outport
         return inport, outport
 
-    def similarity_with(self, neighbor_culture):
-        return sum(np.array(neighbor_culture) == np.array(self.state.culture))/float(len(self.state.culture))
-
-    def mix_culture(self, neighbor_culture):
-        same_culture_index = np.array(neighbor_culture) != np.array(self.state.culture)
-        indexes = np.where(same_culture_index == True)
-        rand_cult = np.random.choice(indexes[0], 1)[0]
-        self.state.culture[rand_cult] = neighbor_culture[rand_cult]
-
-    def get_neighbor(self):
-        neighbor_key = np.random.choice(list(self.state.neighbors_culture.keys()), 1)[0]
-        neighbor_culture = self.state.neighbors_culture[neighbor_key]
-        return neighbor_culture
-
     def extTransition(self, inputs): 
-        self.state.current_time += self.elapsed
-        for k, v in inputs.items(): 
-            self.state.neighbors_culture[k.name] = v
-        return self.state
+        pass
 
     def intTransition(self):
         self.state.current_time += self.state.ta 
-        self.y_up = None
-        if self.state.action_state == ActionState.P:
-            self.state.action_state = ActionState.N
-            self.y_up = (self.state.id, self.state.culture)
-        else:
-            neighbor_culture = self.get_neighbor()
-            similarity = self.similarity_with(neighbor_culture)
-            if similarity < 1 and np.random.random() < similarity:
-                self.mix_culture(neighbor_culture)
-                self.state.action_state = ActionState.P
+        self.y_up = (self.state.id, len(self.out_ports_dict.keys()))
+        self.already_run = True
         return self.state
 
     def __lt__(self, other):
@@ -204,21 +176,17 @@ class Agent(AtomicDEVS):
 
     def outputFnc(self):
         ret = {}
-        if self.state.action_state == ActionState.P:
-            for outport in self.out_ports_dict.values():
-                ret[outport] = self.state.culture 
-
         return ret
 
     def timeAdvance(self):
-        ta = 0
-        if self.state.action_state == ActionState.P:
-            ta = 0
-        elif self.state.action_state == ActionState.N:
-            ta = 1 #reverse_exponential(5) + 1
-        self.state.ta = ta
+        self.state.ta = self.state.id
+        if self.already_run:
+            self.state.ta = INFINITY
         return self.state.ta
 
+    def modelTransition(self, state):
+        state['current_time'] = self.state.current_time
+        return True 
 
 class Environment(CoupledDEVS):
     def __init__(self, name=None):
@@ -233,6 +201,7 @@ class Environment(CoupledDEVS):
         self.create_topology() 
 
 
+        # This agent reads the environment state for logging purposes
         log_agent = LogAgent()
         log_agent.OPorts = []
         log_agent.IPorts = []
@@ -243,45 +212,46 @@ class Environment(CoupledDEVS):
         self.points = None
         self.model = None
         self.updatecount = 0
+        self.nodes_degrees = {}
 
     def create_topology(self):
-        G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
-        # G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
+        # Read the topology file
+        self.G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
         self.agents = {}
-        for i, node in G.nodes(data=True): 
+        # For each node, create an atomic object model of class Agent
+        for i, node in self.G.nodes(data=True): 
             ag_id = int(i)
+            node['start'] = 0.0
             agent = Agent(name="agent %s" % i, id=ag_id, kwargs=node) 
             self.agents[ag_id] = self.addSubModel(agent)
-            self.G.add_node(agent.state.id)
 
-        for i in G.edges():
-            if i[0] == i[1]: continue
-            ind0 = int(i[0])
-            ind1 = int(i[1])
-            a0 = self.agents[ind0]
-            a1 = self.agents[ind1]
-            
-            i0, o0 = a0.add_connections(ind1)
-            i1, o1 = a1.add_connections(ind0)
 
-            self.connectPorts(o0, i1)
-            self.connectPorts(o1, i0)
+        # For each edge in the graph, connect the respective atomic models
+        for i in self.G.edges():
+            # Avoid self-loops
+            if i[0] != i[1]:
+                # Connect input output ports between agents.
+                ind0 = int(i[0])
+                ind1 = int(i[1])
+                a0 = self.agents[ind0]
+                a1 = self.agents[ind1]
+                
+                i0, o0 = a0.add_connections(ind1)
+                i1, o1 = a1.add_connections(ind0)
 
-        self.cultures = {}
+                self.connectPorts(o0, i1)
+                self.connectPorts(o1, i0)
+
+        self.G = nx.relabel.convert_node_labels_to_integers(self.G)
+
+
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        self.cultures.update(x_b_micro)
+        self.nodes_degrees.update(x_b_micro)
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
-
-        if(property == ENVProps.NUMBER_OF_CULTURES):
-            # cultures = [m.state.culture for m in self.agents.values()[:-1]]
-            unique_cultures = []
-            if self.cultures:
-                unique_cultures = np.unique(np.array(list(self.cultures.values())), axis=0) 
-            return len(unique_cultures)
 
 
     def select(self, immChildren):
@@ -290,4 +260,43 @@ class Environment(CoupledDEVS):
         """
         # Doesn't really matter, as they don't influence each other
         return immChildren[0]
+
+    def modelTransition(self, state): 
+        # Sort a random value from the weighted list of nodes
+        grados = self.nodes_degrees.values()
+        xk = np.array(grados)
+        pk = xk / float(sum(xk))
+
+        selected_agent_id = np.random.choice(self.nodes_degrees.keys(), 1, p=pk)[0]
+
+        # Create a new node
+        current_time = state['current_time']
+        # There is a logging agent that we need to leave out from the list of ids.
+        new_ag_id = len(self.agents) - 1
+
+        new_agent = Agent(name="agent %s" % new_ag_id, id=new_ag_id,
+                kwargs={'current_time':current_time}) 
+        self.agents[new_ag_id] = self.addSubModel(new_agent)
+
+        # p_connect_density = stats.rv_discrete(name='custm', values=(self.nodes_degrees.keys(), pk))
+
+        # selected_agent2 = p_connect_density.rvs()
+
+        # Connect ports from/to that node
+        i0, o0 = new_agent.add_connections(selected_agent_id)
+        i1, o1 = self.agents[selected_agent_id].add_connections(new_ag_id)
+
+        self.connectPorts(o0, i1)
+        self.connectPorts(o1, i0)
+
+        # Update the nodes degrees list
+        self.nodes_degrees[selected_agent_id] = self.nodes_degrees.get(selected_agent_id, 0) + 1
+        self.nodes_degrees[new_ag_id] = self.nodes_degrees.get(selected_agent_id, 0) + 1
+
+        # Update G
+        self.G.add_node(int(new_ag_id))
+        self.G.add_edge(int(new_ag_id), int(selected_agent_id), timestamp=current_time)
+        self.G.nodes[int(new_ag_id)]['start'] = current_time
+
+        return False 
 

@@ -15,7 +15,7 @@ Be sure you have python2.7 accessible system-wide.
 Install the requirements file:
 
 ```
-pip install -r requirements.txt --user
+pip2 install -r requirements.txt --user
 
 ```
 
@@ -37,3 +37,5 @@ cd sir_v_simpat_version && python experiment.py
 ```
 
 # How to create new models
+
+TODO: Write down

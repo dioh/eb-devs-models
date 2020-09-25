@@ -91,7 +91,7 @@ def run_single():
 
 
 RETRIES = 1
-FF_CICLES = 12
+FF_CICLES = 1
 
 def run_multiple():
     # parameters_comb_list = [{"PROB_FISSION": 0.5}, {"PROB_FISSION": 0.8}]
