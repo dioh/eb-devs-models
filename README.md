@@ -6,8 +6,7 @@ EB-DEVS is a DEVS extension implementing macro-level states for emergent behavio
 
 ### Prerequisites
 
-This proyect is implemented in the now deprecated python2.7 interpreter.
-Be sure you have python2.7 accessible system-wide.
+The project works for python 3.6+
 
 
 ### Installing
@@ -15,7 +14,7 @@ Be sure you have python2.7 accessible system-wide.
 Install the requirements file:
 
 ```
-pip2 install -r requirements.txt --user
+pip install -r requirements.txt --user
 
 ```
 
@@ -23,7 +22,7 @@ Then, install the PyPDEVS library:
 
 ```
 cd ./pypdevs/src
-python2.7 setup.py install  --user
+python setup.py install  --user
 
 ```
 
