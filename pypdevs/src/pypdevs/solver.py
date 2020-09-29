@@ -218,7 +218,6 @@ class Solver(object):
             aDEVS.my_input = {}
 
         # Finally, call the deltaGTransition for EB-DEVS Extension
-        # TODO: Call with parent's parent state.
         if x_bag:
             a_model = aDEVS.parent
             a_model.globalTransition(t, x_bag)
