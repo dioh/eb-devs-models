@@ -24,12 +24,9 @@ from pypdevs.infinity import INFINITY
 
 # Import code for DEVS model representation:
 from pypdevs.DEVS import *
+import copy
 
-
-# np.random.seed(0)
-# TODO: Create a complete graph
-
-
+np.random.seed(0)
 def reverse_exponential(x):
     return np.random.exponential(1/float(x))
 
@@ -42,6 +39,7 @@ def threshold(t, theta, a, b):
 class Parameters:
     TOPOLOGY_FILE = ""
     INIT_RESOURCES = 10
+    EMERGENT_MODEL = False
 
 DEBUG = True
 
@@ -53,27 +51,28 @@ def enum(**kwargs):
 
 ActionState = enum(P='PROPAGATING', N="NORMAL")
 
-ENVProps = enum(DECAY='decay_rate', GIVERS_GREATER_THAN='Givers')
+ENVProps = enum(DECAY='decay_rate',
+        GIVERS_GREATER_THAN='Givers',
+        GIVERS_MEAN='Givers Mean values',
+        GIVERS_SD='Givers SD values',
+        TOTAL_CRED_MEAN='Total credits mean',
+        TOTAL_CRED_SD='Total credits sd')
 
 class AgentState(object):
     # TODO: Implement "clone" method.
+    # FIXME: should I accumulate the credits I got? 
     def __init__(self, name, id):
-        self._name = name
+        self.name = name
         self.current_time = 0.0
         self.id = id 
         self.ta = 0
 
-        self.resources = Parameters.INIT_RESOURCES
+        self.giving = False
+
+        self.credits = Parameters.INIT_RESOURCES
         TG_MAX = Parameters.INIT_RESOURCES
         self.gg = np.random.randint(0, TG_MAX + 1) 
         self.tg = np.random.uniform(low=0.1, high=2)
-        # TODO Implement RV I cant find it.
-
-
-    @property
-    def name(self):
-        """I'm the 'heading' property."""
-        return self._name
 
     @property
     def ta(self):
@@ -88,7 +87,7 @@ class AgentState(object):
         return(self._name, self._state)
 
     def __repr__(self):
-        return "Agent: %s, culture: %s" % (str(self.name), str(self.culture))
+        return "Agent: %s, credits: %s" % (str(self.name), str(self.credits))
 
 class LogAgent(AtomicDEVS):
     def __init__(self):
@@ -105,11 +104,9 @@ class LogAgent(AtomicDEVS):
         return self.name < other.name 
 
     def saveLoginfo(self): 
-        pass
-        # number_of_cultures = self.parent.getContextInformation(ENVProps.NUMBER_OF_CULTURES)
-        # TODO: Change logger
-        # stats = (self.current_time, number_of_cultures)
-        # self.stats.append(stats) 
+        givers_mean = self.parent.getContextInformation(ENVProps.GIVERS_MEAN)
+        stats = (self.current_time, givers_mean)
+        self.stats.append(stats) 
 
     def intTransition(self):
         self.current_time += self.ta
@@ -119,7 +116,7 @@ class LogAgent(AtomicDEVS):
         return self.ta
 
     def set_values(self):
-        self.ta = 1 #0.1
+        self.ta = 0.99 #0.1
 
 class Agent(AtomicDEVS):
     def __init__(self, name=None, id=None, kwargs=None):
@@ -133,6 +130,18 @@ class Agent(AtomicDEVS):
 
         self.y_up = None
 
+    def new_instance(self, new_id):
+        new_agent_state = copy.deepcopy(self.state)
+        agent = Agent(name="agent %s" % new_id, id=new_id) 
+        agent.state = new_agent_state
+        agent.state.id = new_id
+        agent.state.name = "agent %s" % new_id
+        return agent
+
+    def reset_state(self):
+        self.state.credits = Parameters.INIT_RESOURCES
+        # TODO: Include mutation.
+
     def add_connections(self, ag_id): 
         inport = self.addInPort(name=ag_id)
         self.in_ports_dict[ag_id] = inport
@@ -141,19 +150,22 @@ class Agent(AtomicDEVS):
         return inport, outport
 
     def get_neighbor(self):
-        suitable_neighbors = self.parent.getContextInformation(\
+        suitable_neighbors = list(self.parent.getContextInformation(\
                 ENVProps.GIVERS_GREATER_THAN,
-                bigger_than = self.state.tg * self.state.gg)
+                bigger_than = self.state.tg * self.state.gg,\
+                        avoid_self = self.state.id))
 
-        neighbor_to_give = np.random.choice(suitable_neighbors)
-        return self.out_ports_dict[neighbor_to_give]
+        if suitable_neighbors:
+            neighbor_to_give = np.random.choice(suitable_neighbors)
+            outport = self.out_ports_dict.get(neighbor_to_give)
+            return outport
 
     def extTransition(self, inputs): 
-        # TODO: Here it receives the new resources
-        # TODO: Check how are the inputs formed
-        self.state.resources += inputs
+        credits = list(inputs.values())[0]
+        self.state.credits += credits
         self.state.current_time += self.elapsed
-        self.y_up = {'received': inputs}
+        self.y_up = {'received_credits': (self.state.id, credits),
+                'total_credits': (self.state.id, self.state.credits)}
         return self.state
 
     def intTransition(self):
@@ -161,15 +173,17 @@ class Agent(AtomicDEVS):
         if self.state.giving:
             # If I give I remove the ones I gave.
             self.state.giving = False
-            self.state.credits -= self.state.tg
-            self.y_up = {'given': self.state.tg}
+            self.state.credits -= self.state.gg
+            self.y_up = {'given_credits': (self.state.id, self.state.gg),
+                'total_credits': (self.state.id, self.state.credits)}
+
         return self.state
 
     def __lt__(self, other):
         return self.name < other.name 
 
     def outputFnc(self):
-        # Here I select the neighbor to send resources:
+        # Here I select the neighbor to send credits:
         # Which of my neighbors has given more than TG * GG
         # credits in the previous gen (if greater than zero)?
         # Pick randomly from this subset.
@@ -190,7 +204,6 @@ class Agent(AtomicDEVS):
         return True 
 
 class Environment(CoupledDEVS):
-    # TODO: Enable dynamic nature
     # TODO: Create new agents
     def __init__(self, name=None):
         # Always call parent class' constructor FIRST:
@@ -200,18 +213,27 @@ class Environment(CoupledDEVS):
         # Children states initialization
         self.create_topology() 
 
-        log_agent = LogAgent()
-        log_agent.OPorts = []
-        log_agent.IPorts = []
-        self.addSubModel(log_agent)
-        self.agents[-1] = log_agent
-        log_agent.saveLoginfo()
+        self.log_agent = LogAgent()
+        self.log_agent.OPorts = []
+        self.log_agent.IPorts = []
+        self.addSubModel(self.log_agent)
+        # self.agents[-1] = log_agent
+        self.log_agent.saveLoginfo()
 
+        self.given_credits = {v.state.id: Parameters.INIT_RESOURCES \
+                for k, v in self.agents.items() if k != -1}
+        self.received_credits = {}
+        self.total_credits = {v.state.id: Parameters.INIT_RESOURCES \
+                for k, v in self.agents.items() if k != -1}
+
+        # The last agent's id
+        self.last_agent_id = len(self.agents) - 1
+
+        # This is used to run the structural changes only once.
         self.updatecount = 0
 
     def create_topology(self):
         G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
-        # G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
         self.agents = {}
         for i, node in G.nodes(data=True): 
             ag_id = int(i)
@@ -239,37 +261,96 @@ class Environment(CoupledDEVS):
 
     def modelTransition(self, state): 
         # Create the new generations, destroy the old one
-        pass
+        self.updatecount = self.updatecount + 1
+        if self.updatecount < len(self.agents) - 1: # - 1 due to the logging agent...
+            return
+        self.updatecount = 0
+
+        g_mean = self.getContextInformation(ENVProps.GIVERS_MEAN)
+        g_sd = self.getContextInformation(ENVProps.GIVERS_SD)
+
+        to_duplicate = dict(filter(lambda elem: \
+                elem[1] >= g_mean + 1 * (g_sd),
+                self.total_credits.items()))
+
+        to_eliminate = dict(filter(lambda elem: \
+                elem[1] <= g_mean - 1 * (g_sd),
+                self.total_credits.items()))
+
+        to_replicate_once = dict(filter(lambda elem: \
+                elem[1] > g_mean - 1 * (g_sd) and elem[1] < g_mean + 1 * (g_sd),
+                self.total_credits.items()))
+
+
+        # Remove the ones to eliminate
+        for model_id in to_eliminate.keys():
+            self.removeSubModel(self.agents[model_id])
+            del self.agents[model_id]
+            del self.total_credits[model_id]
+            # del self.received_credits[model_id]
+            del self.given_credits[model_id]
+
+        # Replicate models.
+        for model_id in to_replicate_once.keys():
+            new_id = self.last_agent_id
+            self.last_agent_id += 1
+            agent = self.agents[model_id].new_instance(new_id)
+            self.agents[new_id] = self.addSubModel(agent)
+            
+        # Duplicate models.
+        for model_id in to_replicate_once.keys():
+            new_id = self.last_agent_id
+            self.last_agent_id += 1
+            agent = self.agents[model_id].new_instance(new_id)
+            self.agents[new_id] = self.addSubModel(agent)
+
+            new_id = self.last_agent_id
+            self.last_agent_id += 1
+            agent = self.agents[model_id].new_instance(new_id)
+            self.agents[new_id] = self.addSubModel(agent)
+
+        # Update the resources for each agent
+        for ag_id, ag in self.agents.items():
+            ag.reset_state()
+            self.total_credits[ag_id] = Parameters.INIT_RESOURCES
+        self.given_credits = {}
+        # __import__('ipdb').set_trace()
+
+        # Connect!!
+
+        return False
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        given = x_b_micro.get('given', None)
-        received = x_b_micro.get('received', None)
 
-        if given is not None:
-            self.given_credits.append(given)
-        if received is not None:
-            self.received_credits.append(received)
-        self.given_credits.update(x_b_micro)
+        for elem in x_b_micro:
+            for cred_type, (agent_id, credits) in elem.items():
+                self.__dict__[cred_type][agent_id] = credits
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
         if property == ENVProps.GIVERS_GREATER_THAN:
             bigger_than = kwargs['bigger_than']
+            avoid_self = kwargs['avoid_self']
+
             givers = dict(filter(lambda elem: \
-                elem[1] >= bigger_than,
+                elem[1] >= bigger_than and elem[0] != avoid_self,
                 self.given_credits.items()))
             return givers.keys()
 
-        # a. The mean +/- sd of the given credits
-        # b. something else I'm forgetting
+        if property == ENVProps.GIVERS_MEAN:
+            return np.array(list(self.given_credits.values())).mean()
 
-        # if(property == ENVProps.NUMBER_OF_CULTURES):
-        #     unique_cultures = []
-        #     if self.cultures:
-        #         unique_cultures = np.unique(np.array(list(self.cultures.values())), axis=0) 
-        #     return len(unique_cultures)
+        if property == ENVProps.GIVERS_SD:
+            return np.array(list(self.given_credits.values())).std()
 
+        if property == ENVProps.TOTAL_CRED_MEAN:
+            # if len(list(self.total_credits.values())) == 0:
+            #     __import__('ipdb').set_trace()
+            return np.array(list(self.total_credits.values())).mean()
+
+        if property == ENVProps.TOTAL_CRED_SD:
+            return np.array(list(self.total_credits.values())).std()
 
     def select(self, immChildren):
         """

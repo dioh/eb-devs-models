@@ -90,9 +90,11 @@ def run_single(retry=0):
 
     sim.setSchedulerMinimalList() 
 
+    sim.setVerbose(None)
+
     sim.simulate()
 
-    dataframe = pd.DataFrame(environ.agents[-1].stats)
+    dataframe = pd.DataFrame(environ.log_agent.stats)
     dataframe['retry'] = retry
     tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/takahashi_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
@@ -108,7 +110,7 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'topology/complete_n5.adj'
+    Parameters.TOPOLOGY_FILE = 'topology/complete_n3.adj'
 
     for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)
