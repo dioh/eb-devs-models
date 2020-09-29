@@ -43,8 +43,8 @@ class Agent(AtomicDEVS):
         self.current_time += self.ta 
         self.state = not self.state
         self.y_up = self.state
-        print "state", self.state
-        print self.parent.getContextInformation()
+        print("state", self.state)
+        print(self.parent.getContextInformation())
         return self.state
 
     def __lt__(self, other):
