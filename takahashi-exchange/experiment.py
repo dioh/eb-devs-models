@@ -110,7 +110,7 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'topology/complete_n3.adj'
+    Parameters.TOPOLOGY_FILE = 'topology/complete_n5.adj'
 
     for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)

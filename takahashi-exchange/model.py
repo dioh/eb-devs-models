@@ -290,12 +290,14 @@ class Environment(CoupledDEVS):
             # del self.received_credits[model_id]
             del self.given_credits[model_id]
 
+        new_agents = {}
         # Replicate models.
         for model_id in to_replicate_once.keys():
             new_id = self.last_agent_id
             self.last_agent_id += 1
             agent = self.agents[model_id].new_instance(new_id)
             self.agents[new_id] = self.addSubModel(agent)
+            new_agents[new_id] = agent
             
         # Duplicate models.
         for model_id in to_replicate_once.keys():
@@ -303,21 +305,28 @@ class Environment(CoupledDEVS):
             self.last_agent_id += 1
             agent = self.agents[model_id].new_instance(new_id)
             self.agents[new_id] = self.addSubModel(agent)
+            new_agents[new_id] = agent
 
             new_id = self.last_agent_id
             self.last_agent_id += 1
             agent = self.agents[model_id].new_instance(new_id)
             self.agents[new_id] = self.addSubModel(agent)
+            new_agents[new_id] = agent
 
         # Update the resources for each agent
         for ag_id, ag in self.agents.items():
             ag.reset_state()
             self.total_credits[ag_id] = Parameters.INIT_RESOURCES
         self.given_credits = {}
-        # __import__('ipdb').set_trace()
 
         # Connect!!
-
+        for ag_id, agent in new_agents.items(): 
+            for oth_ag_id, other_agent in self.agents.items():
+                if ag_id != oth_ag_id:
+                    i0, o0 = agent.add_connections(oth_ag_id)
+                    i1, o1 = other_agent.add_connections(ag_id) 
+                    self.connectPorts(o0, i1)
+                    self.connectPorts(o1, i0) 
         return False
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
