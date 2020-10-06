@@ -39,6 +39,9 @@ def threshold(t, theta, a, b):
 class Parameters:
     TOPOLOGY_FILE = ""
     INIT_RESOURCES = 10
+    MAX_AG = 20
+    RV = 2
+    TRIALS = 10
     EMERGENT_MODEL = False
 
 DEBUG = True
@@ -65,10 +68,11 @@ class AgentState(object):
         self.current_time = 0.0
         self.id = id 
         self.ta = 1
+        self.end_of_gen = False
 
         self.giving = False
 
-        self.credits = Parameters.INIT_RESOURCES
+        self.credits = 0#Parameters.INIT_RESOURCES
         TG_MAX = Parameters.INIT_RESOURCES
         self.gg = np.random.randint(0, TG_MAX + 1) 
         self.tg = np.random.uniform(low=0.1, high=2)
@@ -166,7 +170,7 @@ class Agent(AtomicDEVS):
 
     def extTransition(self, inputs): 
         credits = list(inputs.values())[0]
-        self.state.credits += credits
+        self.state.credits += Parameters.RV * credits
         self.state.current_time += self.elapsed
         self.y_up = {'received_credits': (self.state.id, credits),
                 'total_credits': (self.state.id, self.state.credits)}
@@ -174,6 +178,14 @@ class Agent(AtomicDEVS):
 
     def intTransition(self):
         self.state.current_time += self.state.ta 
+        # This is the model transition condition. Always false except for the
+        # end of generation timestamp.
+        self.state.end_of_gen = False
+        # After each trial give the initial creds
+        self.state.credits += Parameters.INIT_RESOURCES
+
+        if self.state.current_time % Parameters.TRIALS == 0:
+            self.state.end_of_gen = True
         if self.state.giving:
             # If I give I remove the ones I gave.
             self.state.giving = False
@@ -195,7 +207,7 @@ class Agent(AtomicDEVS):
         ret = {}
         output_port = self.get_neighbor()
 
-        if output_port:
+        if output_port and self.state.credits >= self.state.gg:
             self.state.giving = True
             ret[output_port] = self.state.gg
         return ret
@@ -205,7 +217,7 @@ class Agent(AtomicDEVS):
         return self.state.ta
 
     def modelTransition(self, state):
-        return True 
+        return self.state.end_of_gen
 
 class Environment(CoupledDEVS):
     def __init__(self, name=None):
@@ -290,30 +302,28 @@ class Environment(CoupledDEVS):
             del self.agents[model_id]
             del self.total_credits[model_id]
             # del self.received_credits[model_id]
-            del self.given_credits[model_id]
+            if self.given_credits.get(model_id):
+                del self.given_credits[model_id]
 
         new_agents = {}
         # Replicate models.
         for model_id in to_replicate_once.keys():
-            new_id = self.last_agent_id
-            self.last_agent_id += 1
-            agent = self.agents[model_id].new_instance(new_id)
-            self.agents[new_id] = self.addSubModel(agent)
-            new_agents[new_id] = agent
+            if len(self.agents) < Parameters.MAX_AG:
+                new_id = self.last_agent_id
+                self.last_agent_id += 1
+                agent = self.agents[model_id].new_instance(new_id)
+                self.agents[new_id] = self.addSubModel(agent)
+                new_agents[new_id] = agent
             
         # Duplicate models.
-        for model_id in to_replicate_once.keys():
-            new_id = self.last_agent_id
-            self.last_agent_id += 1
-            agent = self.agents[model_id].new_instance(new_id)
-            self.agents[new_id] = self.addSubModel(agent)
-            new_agents[new_id] = agent
-
-            new_id = self.last_agent_id
-            self.last_agent_id += 1
-            agent = self.agents[model_id].new_instance(new_id)
-            self.agents[new_id] = self.addSubModel(agent)
-            new_agents[new_id] = agent
+        for model_id in to_duplicate.keys():
+            for _ in range(2):
+                if len(self.agents) < Parameters.MAX_AG:
+                    new_id = self.last_agent_id
+                    self.last_agent_id += 1
+                    agent = self.agents[model_id].new_instance(new_id)
+                    self.agents[new_id] = self.addSubModel(agent)
+                    new_agents[new_id] = agent
 
         # Update the resources for each agent
         for ag_id, ag in self.agents.items():
