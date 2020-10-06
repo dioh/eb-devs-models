@@ -59,13 +59,12 @@ ENVProps = enum(DECAY='decay_rate',
         TOTAL_CRED_SD='Total credits sd')
 
 class AgentState(object):
-    # TODO: Implement "clone" method.
     # FIXME: should I accumulate the credits I got? 
     def __init__(self, name, id):
         self.name = name
         self.current_time = 0.0
         self.id = id 
-        self.ta = 0
+        self.ta = 1
 
         self.giving = False
 
@@ -116,7 +115,7 @@ class LogAgent(AtomicDEVS):
         return self.ta
 
     def set_values(self):
-        self.ta = 0.99 #0.1
+        self.ta = 1
 
 class Agent(AtomicDEVS):
     def __init__(self, name=None, id=None, kwargs=None):
@@ -143,10 +142,15 @@ class Agent(AtomicDEVS):
         # TODO: Include mutation.
 
     def add_connections(self, ag_id): 
-        inport = self.addInPort(name=ag_id)
-        self.in_ports_dict[ag_id] = inport
-        outport = self.addOutPort(name=ag_id)
-        self.out_ports_dict[ag_id] = outport
+        inport = outport = None
+        if ag_id not in self.in_ports_dict:
+            inport = self.addInPort(name=ag_id)
+            self.in_ports_dict[ag_id] = inport
+            outport = self.addOutPort(name=ag_id)
+            self.out_ports_dict[ag_id] = outport
+        else:
+            inport = self.in_ports_dict[ag_id]
+            outport = self.out_ports_dict[ag_id] 
         return inport, outport
 
     def get_neighbor(self):
@@ -204,7 +208,6 @@ class Agent(AtomicDEVS):
         return True 
 
 class Environment(CoupledDEVS):
-    # TODO: Create new agents
     def __init__(self, name=None):
         # Always call parent class' constructor FIRST:
         CoupledDEVS.__init__(self, name)
@@ -266,8 +269,8 @@ class Environment(CoupledDEVS):
             return
         self.updatecount = 0
 
-        g_mean = self.getContextInformation(ENVProps.GIVERS_MEAN)
-        g_sd = self.getContextInformation(ENVProps.GIVERS_SD)
+        g_mean = self.getContextInformation(ENVProps.TOTAL_CRED_MEAN)
+        g_sd = self.getContextInformation(ENVProps.TOTAL_CRED_SD)
 
         to_duplicate = dict(filter(lambda elem: \
                 elem[1] >= g_mean + 1 * (g_sd),
@@ -280,7 +283,6 @@ class Environment(CoupledDEVS):
         to_replicate_once = dict(filter(lambda elem: \
                 elem[1] > g_mean - 1 * (g_sd) and elem[1] < g_mean + 1 * (g_sd),
                 self.total_credits.items()))
-
 
         # Remove the ones to eliminate
         for model_id in to_eliminate.keys():
@@ -317,7 +319,7 @@ class Environment(CoupledDEVS):
         for ag_id, ag in self.agents.items():
             ag.reset_state()
             self.total_credits[ag_id] = Parameters.INIT_RESOURCES
-        self.given_credits = {}
+        # self.given_credits = {}
 
         # Connect!!
         for ag_id, agent in new_agents.items(): 
@@ -327,6 +329,8 @@ class Environment(CoupledDEVS):
                     i1, o1 = other_agent.add_connections(ag_id) 
                     self.connectPorts(o0, i1)
                     self.connectPorts(o1, i0) 
+
+
         return False
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
