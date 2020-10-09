@@ -25,11 +25,13 @@ import scipy.special as special
 from pypdevs.DEVS import *
 from pypdevs.infinity import INFINITY
 
+# UTIL FUNCTIONS
+
 def reverse_exponential(x):
     return np.random.exponential(1/float(x))
 
 def random_color():
-    return "RED" if np.random.uniform()<Parameters.RED_PROBABILITY else "GREEN"
+    return GRIDProps.RED if np.random.uniform()<Parameters.RED_PROBABILITY else GRIDProps.GREEN
 
 def clear():
     os.system("clear")
@@ -41,8 +43,6 @@ class Parameters:
     RED_PROBABILITY = 0.5
     EMERGENT_MODEL = False
 
-DEBUG = True
-
 def enum(**kwargs):
     class Enum(object): pass
     obj = Enum()
@@ -50,6 +50,7 @@ def enum(**kwargs):
     return obj
 
 ENVProps = enum(PERCENTAGE_UNHAPPY = 'P_UNHAPPY', HAPPINESS = 'HAPPINESS', GRID = "GRID", RANDOM_EMPTY_CELL = "RANDOM_EMPTY_CELL")
+GRIDProps = enum(EMPTY = ' ', RED = 'R', GREEN = "G" )
 
 class AgentState(object):
     def __init__(self, name, id, position, color):
@@ -100,7 +101,7 @@ class LogAgent(AtomicDEVS):
         print "==================================================== "
         print "%.2f %.5f " % (self.current_time, percentage_unhappy)
         print "==================================================== " 
-        print "\n".join( [ " ".join( [ c[0] for c in row ] ) for row in grid ] )
+        print "\n".join( [ " ".join( [ c for c in row ] ) for row in grid ] )
 
         stats = (self.current_time, percentage_unhappy)
         self.stats.append(stats)
@@ -126,9 +127,9 @@ class Agent(AtomicDEVS):
         return self.state
 
     def intTransition(self):
-        happy = self.parent.getContextInformation( ENVProps.HAPPINESS, ag_id = self.state.id )
+        happy = self.parent.getContextInformation( ENVProps.HAPPINESS, pos = self.state.position, color = self.state.color )
         if not happy:
-            empty_cell = self.parent.getContextInformation( ENVProps.RANDOM_EMPTY_CELL, ag_id = self.state.id )
+            empty_cell = self.parent.getContextInformation( ENVProps.RANDOM_EMPTY_CELL, pos = self.state.position )
             self.state.position = empty_cell
         return self.state
 
@@ -144,7 +145,13 @@ class Environment(CoupledDEVS):
         CoupledDEVS.__init__(self, name)
 
         self.create_topology() 
+        self.create_logagent() 
 
+    #########################################################
+    # INIT  METHODS #########################################
+    #########################################################
+
+    def create_logagent(self):
         self.log_agent = LogAgent()
         self.log_agent.OPorts = []
         self.log_agent.IPorts = []
@@ -153,7 +160,7 @@ class Environment(CoupledDEVS):
 
     def create_topology(self):
         self.agents = {}
-        self.grid = [ [ None for i in range(Parameters.GRID_SIZE[0]) ] for j in range(Parameters.GRID_SIZE[1]) ]
+        self.grid = [ [ GRIDProps.EMPTY for i in range(Parameters.GRID_SIZE[0]) ] for j in range(Parameters.GRID_SIZE[1]) ]
         agent_positions = random.sample(range(Parameters.GRID_SIZE[0] * Parameters.GRID_SIZE[1]), Parameters.POPULATION_SIZE)
         for i, pos in enumerate(agent_positions):
             ag_id = int(i)
@@ -161,26 +168,41 @@ class Environment(CoupledDEVS):
             color = random_color()
 
             agent = Agent(name="agent %s" % i, id=ag_id, position = grid_pos, color = color)
-            self.grid[grid_pos[0]][grid_pos[1]] = ag_id
+            self.grid[grid_pos[0]][grid_pos[1]] = color
             self.agents[ag_id] = self.addSubModel(agent)
 
-    def agent_happiness(self, ag_id):
-        ag_pos = self.agents[ag_id].state.position
-        ag_color = self.agents[ag_id].state.color
+    ##########################################################
+    # SEGREGATION MODEL METHODS ##############################
+    ##########################################################
+
+    def random_empty_cell(self, agent_pos):
+        empty_cells = [ (i, j) for i, r in enumerate(self.grid) for j, c in enumerate(r) if c == GRIDProps.EMPTY ]
+        np.random.shuffle( empty_cells )
+        empty_cell = empty_cells[0]
+        color_swap = self.grid[agent_pos[0]][agent_pos[1]]
+        self.grid[agent_pos[0]][agent_pos[1]] = GRIDProps.EMPTY
+        self.grid[empty_cell[0]][empty_cell[1]] = color_swap
+        return empty_cell
+
+    def happiness(self, pos, color):
         directions = [-1, 1]
-        moore_neigh = [ ( ag_pos[0]+h, ag_pos[1]+v ) for h in directions for v in directions ]
+        moore_neigh = [ ( pos[0]+h, pos[1]+v ) for h in directions for v in directions ]
         moore_neigh = [ p for p in moore_neigh if p[0]>0 and p[1]>0 and p[0]<len(self.grid) and p[1]<len(self.grid[0]) ]
-        moore_colors = [ self.agents[ self.grid[p[0]][p[1]] ].state.color for p in moore_neigh if self.grid[p[0]][p[1]] is not None ]
-        neigh_matchs = len( [ c for c in moore_colors if c==ag_color ] ) / float(len(moore_colors)) if len(moore_colors)>0 else 0.0
+        moore_colors = [ self.grid[p[0]][p[1]] for p in moore_neigh if self.grid[p[0]][p[1]] != GRIDProps.EMPTY ]
+        neigh_matchs = len( [ c for c in moore_colors if c==color ] ) / float(len(moore_colors)) if len(moore_colors)>0 else 0.0
         return neigh_matchs >= Parameters.HAPPINESS_THRESHOLD
+
+    def percentage_unhappy(self):
+        unhappy = [ (i, j) for i, r in enumerate(self.grid) for j, c in enumerate(r) if self.grid[i][j] != GRIDProps.EMPTY ]
+        unhappy = [ (i, j) for i, j in unhappy if not self.happiness((i,j), self.grid[i][j]) ]
+        return len( unhappy ) / float( len(self.agents) )
+
+    ##########################################################
+    # DEVS/PYDEVS/EB-DEVS METHODS ############################
+    ##########################################################
 
     def termination(self, prev, total):
         return self.getContextInformation(ENVProps.PERCENTAGE_UNHAPPY)==0.0 
-
-    def random_empty_cell(self):
-        empty_cells = [ (i, j) for i, r in enumerate(self.grid) for j, c in enumerate(r) if c is None ]
-        np.random.shuffle( empty_cells )
-        return empty_cells[0]
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
@@ -189,18 +211,13 @@ class Environment(CoupledDEVS):
         super(Environment, self).getContextInformation(property)
 
         if(property == ENVProps.GRID):
-            return [ [ self.agents[c].state.color if c is not None else " " for c in row ] for row in self.grid ]
+            return list(self.grid)
         elif(property == ENVProps.PERCENTAGE_UNHAPPY):
-            unhappy = [ ag_id for ag_id in self.agents if not self.agent_happiness(ag_id) ]
-            return len( unhappy ) / float( len(self.agents) )
+            return self.percentage_unhappy()
         elif(property == ENVProps.HAPPINESS):
-            return self.agent_happiness(kwargs["ag_id"])
+            return self.happiness(kwargs["pos"], kwargs["color"])
         elif(property == ENVProps.RANDOM_EMPTY_CELL):
-            ag_pos = self.agents[kwargs["ag_id"]].state.position
-            empty_cell = self.random_empty_cell()
-            self.grid[ag_pos[0]][ag_pos[1]] = None
-            self.grid[empty_cell[0]][empty_cell[1]] = kwargs["ag_id"]
-            return empty_cell
+            return self.random_empty_cell(kwargs["pos"])
 
     def select(self, immChildren):
         return immChildren[0]
