@@ -62,7 +62,6 @@ ENVProps = enum(DECAY='decay_rate',
         TOTAL_CRED_SD='Total credits sd')
 
 class AgentState(object):
-    # FIXME: should I accumulate the credits I got? 
     def __init__(self, name, id):
         self.name = name
         self.current_time = 0.0
@@ -72,7 +71,7 @@ class AgentState(object):
 
         self.giving = False
 
-        self.credits = 0#Parameters.INIT_RESOURCES
+        self.credits = 0 #Parameters.INIT_RESOURCES
         TG_MAX = Parameters.INIT_RESOURCES
         self.gg = np.random.randint(0, TG_MAX + 1) 
         self.tg = np.random.uniform(low=0.1, high=2)
@@ -368,8 +367,6 @@ class Environment(CoupledDEVS):
             return np.array(list(self.given_credits.values())).std()
 
         if property == ENVProps.TOTAL_CRED_MEAN:
-            # if len(list(self.total_credits.values())) == 0:
-            #     __import__('ipdb').set_trace()
             return np.array(list(self.total_credits.values())).mean()
 
         if property == ENVProps.TOTAL_CRED_SD:
