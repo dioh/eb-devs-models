@@ -25,6 +25,8 @@ import scipy.special as special
 from pypdevs.DEVS import *
 from pypdevs.infinity import INFINITY
 
+from functools import total_ordering
+
 # UTIL FUNCTIONS
 
 def reverse_exponential(x):
@@ -80,7 +82,7 @@ class AgentState(object):
         return(self._name, self._state)
 
     def __repr__(self):
-        return "Agent: %s, culture: %s" % (str(self.name), str(self.culture))
+        return "Agent: %s" % (self.name)
 
 class LogAgent(AtomicDEVS):
     def __init__(self):
@@ -88,7 +90,7 @@ class LogAgent(AtomicDEVS):
         self.stats = []
         self.name='logAgent'
         self.ta = 1
-        self.state = "LogAgent"
+        self.state = AgentState("logAgent", -1, None, None)
         self.current_time = 0 
         self.elapsed = 0 
         self.my_input = {}
@@ -98,10 +100,10 @@ class LogAgent(AtomicDEVS):
 
         grid = self.parent.getContextInformation(ENVProps.GRID)
         clear()
-        print "==================================================== "
-        print "%.2f %.5f " % (self.current_time, percentage_unhappy)
-        print "==================================================== " 
-        print "\n".join( [ " ".join( [ c for c in row ] ) for row in grid ] )
+        print( "==================================================== ")
+        print( "%.2f %.5f " % (self.current_time, percentage_unhappy))
+        print( "==================================================== " )
+        print( "\n".join( [ " ".join( [ c for c in row ] ) for row in grid ] ))
 
         stats = (self.current_time, percentage_unhappy)
         self.stats.append(stats)
@@ -116,6 +118,7 @@ class LogAgent(AtomicDEVS):
     def set_values(self):
         self.ta = 0.01 
 
+@total_ordering
 class Agent(AtomicDEVS):
     def __init__(self, name=None, id=None, position=None, color=None, kwargs=None):
         # Always call parent class' constructor FIRST:
@@ -139,6 +142,19 @@ class Agent(AtomicDEVS):
     def timeAdvance(self):
         self.state.ta = reverse_exponential(0.5)
         return self.state.ta
+
+    def __eq__(self, other):
+        return self.state.name == other.state.name
+
+    def __ne__(self, other):
+        return not self.state.name == other.state.name
+
+    def __lt__(self, other):
+        return self.state.name < other.state.name
+
+    def __hash__(self):
+        return hash(self.state.name)
+
 
 class Environment(CoupledDEVS):
     def __init__(self, name=None):
@@ -164,7 +180,7 @@ class Environment(CoupledDEVS):
         agent_positions = random.sample(range(Parameters.GRID_SIZE[0] * Parameters.GRID_SIZE[1]), Parameters.POPULATION_SIZE)
         for i, pos in enumerate(agent_positions):
             ag_id = int(i)
-            grid_pos = ( pos / 20, pos % 20 )
+            grid_pos = ( int(pos / 20), pos % 20 )
             color = random_color()
 
             agent = Agent(name="agent %s" % i, id=ag_id, position = grid_pos, color = color)

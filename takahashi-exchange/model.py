@@ -276,6 +276,7 @@ class Environment(CoupledDEVS):
     def modelTransition(self, state): 
         # Create the new generations, destroy the old one
         self.updatecount = self.updatecount + 1
+        __import__('ipdb').set_trace()
         if self.updatecount < len(self.agents) - 1: # - 1 due to the logging agent...
             return
         self.updatecount = 0
@@ -294,6 +295,8 @@ class Environment(CoupledDEVS):
         to_replicate_once = dict(filter(lambda elem: \
                 elem[1] > g_mean - 1 * (g_sd) and elem[1] < g_mean + 1 * (g_sd),
                 self.total_credits.items()))
+
+        __import__('ipdb').set_trace()
 
         # Remove the ones to eliminate
         for model_id in to_eliminate.keys():
