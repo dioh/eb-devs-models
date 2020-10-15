@@ -131,9 +131,11 @@ class Agent(AtomicDEVS):
 
     def intTransition(self):
         happy = self.parent.getContextInformation( ENVProps.HAPPINESS, pos = self.state.position, color = self.state.color )
+        last_pos = self.state.position
         if not happy:
             empty_cell = self.parent.getContextInformation( ENVProps.RANDOM_EMPTY_CELL, pos = self.state.position )
             self.state.position = empty_cell
+        self.y_up = (last_pos, self.state.position)
         return self.state
 
     def outputFnc(self):
@@ -195,9 +197,6 @@ class Environment(CoupledDEVS):
         empty_cells = [ (i, j) for i, r in enumerate(self.grid) for j, c in enumerate(r) if c == GRIDProps.EMPTY ]
         np.random.shuffle( empty_cells )
         empty_cell = empty_cells[0]
-        color_swap = self.grid[agent_pos[0]][agent_pos[1]]
-        self.grid[agent_pos[0]][agent_pos[1]] = GRIDProps.EMPTY
-        self.grid[empty_cell[0]][empty_cell[1]] = color_swap
         return empty_cell
 
     def happiness(self, pos, color):
@@ -221,6 +220,13 @@ class Environment(CoupledDEVS):
         return self.getContextInformation(ENVProps.PERCENTAGE_UNHAPPY)==0.0 
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
+
+        for last_pos, actual_pos in x_b_micro:
+            # Swap positions
+            color_swap = self.grid[last_pos[0]][last_pos[1]]
+            self.grid[last_pos[0]][last_pos[1]] = GRIDProps.EMPTY
+            self.grid[actual_pos[0]][actual_pos[1]] = color_swap
+
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
 
     def getContextInformation(self, property, *args, **kwargs):
