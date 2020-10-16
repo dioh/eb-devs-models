@@ -133,7 +133,7 @@ class Agent(AtomicDEVS):
         happy = self.parent.getContextInformation( ENVProps.HAPPINESS, pos = self.state.position, color = self.state.color )
         last_pos = self.state.position
         if not happy:
-            empty_cell = self.parent.getContextInformation( ENVProps.RANDOM_EMPTY_CELL, pos = self.state.position )
+            empty_cell = self.parent.getContextInformation( ENVProps.RANDOM_EMPTY_CELL )
             self.state.position = empty_cell
         self.y_up = (last_pos, self.state.position)
         return self.state
@@ -193,7 +193,7 @@ class Environment(CoupledDEVS):
     # SEGREGATION MODEL METHODS ##############################
     ##########################################################
 
-    def random_empty_cell(self, agent_pos):
+    def random_empty_cell(self):
         empty_cells = [ (i, j) for i, r in enumerate(self.grid) for j, c in enumerate(r) if c == GRIDProps.EMPTY ]
         np.random.shuffle( empty_cells )
         empty_cell = empty_cells[0]
@@ -202,7 +202,7 @@ class Environment(CoupledDEVS):
     def happiness(self, pos, color):
         directions = [-1, 1]
         moore_neigh = [ ( pos[0]+h, pos[1]+v ) for h in directions for v in directions ]
-        moore_neigh = [ p for p in moore_neigh if p[0]>0 and p[1]>0 and p[0]<len(self.grid) and p[1]<len(self.grid[0]) ]
+        moore_neigh = [ p for p in moore_neigh if p[0]>=0 and p[1]>=0 and p[0]<len(self.grid) and p[1]<len(self.grid[0]) ]
         moore_colors = [ self.grid[p[0]][p[1]] for p in moore_neigh if self.grid[p[0]][p[1]] != GRIDProps.EMPTY ]
         neigh_matchs = len( [ c for c in moore_colors if c==color ] ) / float(len(moore_colors)) if len(moore_colors)>0 else 0.0
         return neigh_matchs >= Parameters.HAPPINESS_THRESHOLD
@@ -239,7 +239,7 @@ class Environment(CoupledDEVS):
         elif(property == ENVProps.HAPPINESS):
             return self.happiness(kwargs["pos"], kwargs["color"])
         elif(property == ENVProps.RANDOM_EMPTY_CELL):
-            return self.random_empty_cell(kwargs["pos"])
+            return self.random_empty_cell()
 
     def select(self, immChildren):
         return immChildren[0]
