@@ -158,21 +158,20 @@ class Agent(AtomicDEVS):
         """
         self.state.current_time += self.elapsed
 
-        self.state.emergence = self.parent.getContextInformation(ENVProps.DECAY, self.state.current_time) > Parameters.TW_TRHD
-        if self.state.state == SIRStates.S and not self.state.emergence:
+        if self.state.state == SIRStates.S:
             self.state.set_infection_values()
             self.state.state = SIRStates.I
         elif self.state.state == SIRStates.R:
             self.state.ta = INFINITY
         # else:
         #     self.state.ta -= self.elapsed
+        self.y_up = self.state
         return self.state
 
     def intTransition(self):
         """
         Internal Transition Function.
         """
-        self.state.emergence = self.parent.getContextInformation(ENVProps.DECAY, self.state.current_time) > Parameters.TW_TRHD
         self.state.current_time += self.timeAdvance()
 
         if self.state.to_recover:
@@ -181,6 +180,7 @@ class Agent(AtomicDEVS):
         else:
             self.state.set_infection_values()
 
+        self.y_up = self.state
 
         return self.state
 
@@ -269,34 +269,17 @@ class Environment(CoupledDEVS):
             self.connectPorts(out2, a1.in_event)
 
 
-    def saveChildrenState(self, state):
-        super(Environment, self).saveChildrenState(state)
-        if state[0].state == SIRStates.I:
-            bin = int(state[0].current_time) / Parameters.TW_BIN_SIZE
-            self.time_window[bin] = self.time_window.get(bin, 0) + 1
-
-        self.agent_states[state[0].name] = (state[0].state, state[0].emergence)
-        s = i = r = e = 0
-        for _, v in self.agent_states.items():
-            s += v[0] == SIRStates.S
-            i += v[0] == SIRStates.I
-            r += v[0] == SIRStates.R
-            e += v[1]
-        self.stats.append((state[0].current_time, s, i, r, e)) 
-
-    def getContextInformation(self, property, *args, **kwargs):
-        super(Environment, self).getContextInformation(property)
-
-        if(property == ENVProps.DECAY):
-            current_time = args[0]
-            if len(self.time_window.keys()) <=2:
-                return 0
-
-            _, first, second = sorted(self.time_window.keys(), reverse=True)[0:3]
-
-            return self.time_window[first] - self.time_window[second]
-
-
+    def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
+        super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
+        for state in x_b_micro: 
+            self.agent_states[state.name] = (state.state, state.emergence)
+            s = i = r = e = 0
+            for _, v in self.agent_states.items():
+                s += v[0] == SIRStates.S
+                i += v[0] == SIRStates.I
+                r += v[0] == SIRStates.R
+                e += v[1]
+        self.stats.append((e_g, s, i, r, e)) 
 
     def select(self, immChildren):
         """
