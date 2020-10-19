@@ -93,7 +93,6 @@ class AgentState(object):
 
 class LogAgent(AtomicDEVS):
     def __init__(self):
-        self.set_values()
         self.stats = []
         self.name='logAgent'
         self.ta = 1
@@ -116,9 +115,6 @@ class LogAgent(AtomicDEVS):
 
     def timeAdvance(self):
         return self.ta
-
-    def set_values(self):
-        self.ta = 1
 
 class Agent(AtomicDEVS):
     def __init__(self, name=None, id=None, kwargs=None):
@@ -177,9 +173,11 @@ class Agent(AtomicDEVS):
 
     def intTransition(self):
         self.state.current_time += self.state.ta 
+
         # This is the model transition condition. Always false except for the
         # end of generation timestamp.
         self.state.end_of_gen = False
+
         # After each trial give the initial creds
         self.state.credits += Parameters.INIT_RESOURCES
 
@@ -191,6 +189,9 @@ class Agent(AtomicDEVS):
             self.state.credits -= self.state.gg
             self.y_up = {'given_credits': (self.state.id, self.state.gg),
                 'total_credits': (self.state.id, self.state.credits)}
+
+        if self.state.end_of_gen and self.state.current_time % Parameters.TRIALS:
+            __import__('ipdb').set_trace()
 
         return self.state
 
@@ -216,6 +217,8 @@ class Agent(AtomicDEVS):
         return self.state.ta
 
     def modelTransition(self, state):
+        # if self.state.end_of_gen:
+        #     assert not self.state.current_time % Parameters.TRIALS
         return self.state.end_of_gen
 
 class Environment(CoupledDEVS):
@@ -270,16 +273,14 @@ class Environment(CoupledDEVS):
 
         # The credits given by each agent in the last generation.
         # Defaults to the max for the start of the simulation.
-        self.given_credits = {ag.state.id: Parameters.INIT_RESOURCES \
+        self.given_credits = {ag.state.id: 0 \
                 for ag in self.agents.values()}
 
     def modelTransition(self, state): 
         # Create the new generations, destroy the old one
         self.updatecount = self.updatecount + 1
-        __import__('ipdb').set_trace()
-        if self.updatecount < len(self.agents) - 1: # - 1 due to the logging agent...
+        if self.updatecount < len(self.agents): # - 1 due to the logging agent...
             return
-        self.updatecount = 0
 
         g_mean = self.getContextInformation(ENVProps.TOTAL_CRED_MEAN)
         g_sd = self.getContextInformation(ENVProps.TOTAL_CRED_SD)
@@ -296,20 +297,15 @@ class Environment(CoupledDEVS):
                 elem[1] > g_mean - 1 * (g_sd) and elem[1] < g_mean + 1 * (g_sd),
                 self.total_credits.items()))
 
-        __import__('ipdb').set_trace()
 
         # Remove the ones to eliminate
         for model_id in to_eliminate.keys():
             self.removeSubModel(self.agents[model_id])
             del self.agents[model_id]
-            del self.total_credits[model_id]
-            # del self.received_credits[model_id]
-            if self.given_credits.get(model_id):
-                del self.given_credits[model_id]
 
         new_agents = {}
         # Replicate models.
-        for model_id in to_replicate_once.keys():
+        for model_id in []: # to_replicate_once.keys():
             if len(self.agents) < Parameters.MAX_AG:
                 new_id = self.last_agent_id
                 self.last_agent_id += 1
@@ -319,19 +315,25 @@ class Environment(CoupledDEVS):
             
         # Duplicate models.
         for model_id in to_duplicate.keys():
-            for _ in range(2):
+            for _ in range(1):
                 if len(self.agents) < Parameters.MAX_AG:
                     new_id = self.last_agent_id
-                    self.last_agent_id += 1
-                    agent = self.agents[model_id].new_instance(new_id)
+                    try:
+                        agent = self.agents[model_id].new_instance(new_id)
+                    except Exception as e:
+                        __import__('ipdb').set_trace()
+                        raise e
                     self.agents[new_id] = self.addSubModel(agent)
                     new_agents[new_id] = agent
+                    self.last_agent_id += 1
 
+        self.total_credits = {}
+        self.given_credits = {}
         # Update the resources for each agent
         for ag_id, ag in self.agents.items():
             ag.reset_state()
             self.total_credits[ag_id] = Parameters.INIT_RESOURCES
-        # self.given_credits = {}
+            self.given_credits[ag_id] = 0
 
         # Connect!!
         for ag_id, agent in new_agents.items(): 
@@ -343,6 +345,7 @@ class Environment(CoupledDEVS):
                     self.connectPorts(o1, i0) 
 
 
+        self.updatecount = 0
         return False
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):

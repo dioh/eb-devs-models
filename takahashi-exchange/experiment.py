@@ -76,7 +76,7 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 10000
+DURATION = 1000
 RETRIES = 1
 
 
@@ -110,7 +110,7 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'topology/complete_n10.adj'
+    Parameters.TOPOLOGY_FILE = 'topology/complete_n20.adj'
 
     for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)
