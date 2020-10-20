@@ -26,7 +26,7 @@ from pypdevs.infinity import INFINITY
 from pypdevs.DEVS import *
 import copy
 
-np.random.seed(0)
+np.random.seed(100)
 def reverse_exponential(x):
     return np.random.exponential(1/float(x))
 
@@ -44,6 +44,8 @@ class Parameters:
     TRIALS = 10
     EMERGENT_MODEL = False
 
+    MUTATION_PROB = 0.05
+
 DEBUG = True
 
 def enum(**kwargs):
@@ -56,6 +58,7 @@ ActionState = enum(P='PROPAGATING', N="NORMAL")
 
 ENVProps = enum(DECAY='decay_rate',
         GIVERS_GREATER_THAN='Givers',
+        GIVERS_SORTED='Givers sorted',
         GIVERS_MEAN='Givers Mean values',
         GIVERS_SD='Givers SD values',
         TOTAL_CRED_MEAN='Total credits mean',
@@ -71,10 +74,11 @@ class AgentState(object):
 
         self.giving = False
 
-        self.credits = 0 #Parameters.INIT_RESOURCES
-        TG_MAX = Parameters.INIT_RESOURCES
-        self.gg = np.random.randint(0, TG_MAX + 1) 
+        self.credits = Parameters.INIT_RESOURCES
+        self.gg = 0
+        # self.gg = np.random.randint(0, Parameters.INIT_RESOURCES + 1) 
         self.tg = np.random.uniform(low=0.1, high=2)
+
 
     @property
     def ta(self):
@@ -105,7 +109,7 @@ class LogAgent(AtomicDEVS):
         return self.name < other.name 
 
     def saveLoginfo(self): 
-        givers_mean = self.parent.getContextInformation(ENVProps.GIVERS_MEAN)
+        givers_mean = self.parent.getContextInformation('GIVERS_MEAN_GENE')
         stats = (self.current_time, givers_mean)
         self.stats.append(stats) 
 
@@ -137,8 +141,9 @@ class Agent(AtomicDEVS):
         return agent
 
     def reset_state(self):
-        self.state.credits = Parameters.INIT_RESOURCES
-        # TODO: Include mutation.
+        self.state.credits = 0
+        if np.random.random() < Parameters.MUTATION_PROB:
+            self.state.gg = np.random.randint(0, Parameters.INIT_RESOURCES + 1) 
 
     def add_connections(self, ag_id): 
         inport = outport = None
@@ -159,9 +164,17 @@ class Agent(AtomicDEVS):
                         avoid_self = self.state.id))
 
         if suitable_neighbors:
-            neighbor_to_give = np.random.choice(suitable_neighbors)
+            np.random.shuffle(suitable_neighbors)
+        else:
+            suitable_neighbors = list(self.parent.getContextInformation(\
+                ENVProps.GIVERS_SORTED,
+                        avoid_self = self.state.id))
+
+        if suitable_neighbors:
+            neighbor_to_give = suitable_neighbors[0]
             outport = self.out_ports_dict.get(neighbor_to_give)
             return outport
+
 
     def extTransition(self, inputs): 
         credits = list(inputs.values())[0]
@@ -189,9 +202,6 @@ class Agent(AtomicDEVS):
             self.state.credits -= self.state.gg
             self.y_up = {'given_credits': (self.state.id, self.state.gg),
                 'total_credits': (self.state.id, self.state.credits)}
-
-        if self.state.end_of_gen and self.state.current_time % Parameters.TRIALS:
-            __import__('ipdb').set_trace()
 
         return self.state
 
@@ -235,13 +245,16 @@ class Environment(CoupledDEVS):
         self.log_agent.IPorts = []
         self.addSubModel(self.log_agent)
         # self.agents[-1] = log_agent
-        self.log_agent.saveLoginfo()
 
         self.given_credits = {v.state.id: Parameters.INIT_RESOURCES \
                 for k, v in self.agents.items() if k != -1}
         self.received_credits = {}
         self.total_credits = {v.state.id: Parameters.INIT_RESOURCES \
                 for k, v in self.agents.items() if k != -1}
+
+        self.given_array = []
+
+        self.log_agent.saveLoginfo()
 
         # The last agent's id
         self.last_agent_id = len(self.agents) - 1
@@ -318,17 +331,14 @@ class Environment(CoupledDEVS):
             for _ in range(1):
                 if len(self.agents) < Parameters.MAX_AG:
                     new_id = self.last_agent_id
-                    try:
-                        agent = self.agents[model_id].new_instance(new_id)
-                    except Exception as e:
-                        __import__('ipdb').set_trace()
-                        raise e
+                    agent = self.agents[model_id].new_instance(new_id)
                     self.agents[new_id] = self.addSubModel(agent)
                     new_agents[new_id] = agent
                     self.last_agent_id += 1
 
         self.total_credits = {}
         self.given_credits = {}
+        self.given_array = []
         # Update the resources for each agent
         for ag_id, ag in self.agents.items():
             ag.reset_state()
@@ -353,7 +363,11 @@ class Environment(CoupledDEVS):
 
         for elem in x_b_micro:
             for cred_type, (agent_id, credits) in elem.items():
-                self.__dict__[cred_type][agent_id] = credits
+                self.__dict__[cred_type][agent_id] = self.__dict__[cred_type].get(agent_id, 0) + credits
+                if cred_type == 'given_credits':
+                    if credits > 0:
+                        self.given_array.append(credits)
+
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
@@ -366,17 +380,36 @@ class Environment(CoupledDEVS):
                 self.given_credits.items()))
             return givers.keys()
 
+        if property == ENVProps.GIVERS_SORTED:
+            bigger_than = max(self.given_credits.values())
+            avoid_self = kwargs['avoid_self']
+
+            sorted_dict_f = lambda dic, avoid_self: {k: v for k, v in sorted(dic.items(), reverse=True, key=lambda item: item[1]) if k != avoid_self}
+
+            givers = sorted_dict_f(self.given_credits, avoid_self)
+            return givers.keys()
+
         if property == ENVProps.GIVERS_MEAN:
-            return np.array(list(self.given_credits.values())).mean()
+            mean_value = 0
+            if self.given_array:
+                mean_value = np.array(self.given_array).mean()
+            return mean_value
 
         if property == ENVProps.GIVERS_SD:
-            return np.array(list(self.given_credits.values())).std()
+            sd = 0
+            if self.given_array:
+                sd = np.array(self.given_array).sd()
+            return sd
 
         if property == ENVProps.TOTAL_CRED_MEAN:
             return np.array(list(self.total_credits.values())).mean()
 
         if property == ENVProps.TOTAL_CRED_SD:
             return np.array(list(self.total_credits.values())).std()
+
+        if property == "GIVERS_MEAN_GENE":
+            ggs = [ ag.state.gg for ag in self.agents.values() ]
+            return np.array(list(ggs)).mean()
 
     def select(self, immChildren):
         """
