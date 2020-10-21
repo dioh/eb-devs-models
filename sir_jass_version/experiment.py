@@ -81,6 +81,7 @@ def run_single(retry=0):
     initial_states = [(ag.state.name, ag.state.state, 0) for ag in environ.agents] 
     sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
+    sim.setDSDEVS(True)
     # sim.setVerbose(None)
     sim.simulate()
     dataframe = pd.DataFrame(environ.stats)

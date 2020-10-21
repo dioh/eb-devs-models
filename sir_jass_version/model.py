@@ -65,6 +65,7 @@ class AgentState(object):
         self._to_recover = False
         self._emergence = False
         self.neighbors = -1
+        self.free_deg = np.random.poisson(8)
         self.model = model
 
         if self.state == SIRStates.I:
@@ -72,7 +73,8 @@ class AgentState(object):
         else:
             self.ta = INFINITY
 
-    def set_infection_values(self):
+    def set_infection_values(self): 
+    #todo: aca falta filtrar por vecinos susceptibles para tirar la moneda
         prob = 0
         if self.model.OPorts:
             self.neighbors = len(self.model.OPorts)
@@ -143,7 +145,8 @@ class Agent(AtomicDEVS):
         AtomicDEVS.__init__(self, name)
 
         self.in_event = self.addInPort("in_event")
-
+        self.in_ports_dict ={}
+        self.out_ports_dict= {}
         # The initial state of the agent.
         state = SIRStates.I if np.random.random() < Parameters.INITIAL_PROB else SIRStates.S
         self.state = AgentState(self, self.name, id, state)
@@ -220,6 +223,17 @@ class Agent(AtomicDEVS):
             # Randomly select a neighbor and send an infect message
         return {}
 
+    def add_connections(self, ag_id): 
+        inport = self.addInPort(name=ag_id)
+        self.in_ports_dict[ag_id] = inport
+        outport = self.addOutPort(name=ag_id)
+        self.out_ports_dict[ag_id] = outport
+        self.state.free_deg -= 1
+        return inport, outport
+
+    def modelTransition(self, state):
+        state['current_time'] = self.state.current_time
+        return self.state.state == SIRStates.I
 
     def timeAdvance(self):
         """
@@ -248,7 +262,7 @@ class Environment(CoupledDEVS):
 
         # Children states initialization
         self.create_topology()
-
+        self.nodes_free_deg = {}
         self.time_window = {}
         self.agent_states = {}
         # Load the agent states dict:
@@ -275,7 +289,7 @@ class Environment(CoupledDEVS):
     def create_topology(self):
         G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
         self.agents = [Agent(name="agent %d" % i, id=i)  for i in range(G.number_of_nodes())]
-
+        #un agente infectado conectado con algunos vecinos S
 
         for agent in self.agents:
             self.addSubModel(agent)
@@ -296,6 +310,7 @@ class Environment(CoupledDEVS):
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
         for state in x_b_micro: 
+            self.nodes_free_deg[state.id] = state.free_deg
             self.agent_states[state.name] = (state.state, state.emergence)
             s = i = r = e = 0
             for _, v in self.agent_states.items():
@@ -312,5 +327,34 @@ class Environment(CoupledDEVS):
         """
         # Doesn't really matter, as they don't influence each other
         return immChildren[0]
+
+    def modelTransition(self, state): 
+        # Sort a random value from the weighted list of nodes
+        grados = self.nodes_free_deg.values()
+        xk = np.array(grados)
+        pk = xk / float(sum(xk))
+        
+        #esto es para el evento SS
+        p=0
+        K=0
+
+        deg=self.newly_infected_deg()+K*np.random.binomial(1,p)
+        
+        selected_agents_id = np.random.choice(self.nodes_free_deg.keys(),deg , p=pk)[0]
+
+        # Connect ports from/to that node
+        for i in selected_agents_id:
+
+            i0, o0 = newly_inf_id.add_connections(i)
+            i1, o1 = self.agents[i].add_connections(newly_inf_id)
+
+            self.connectPorts(o0, i1)
+            self.connectPorts(o1, i0)
+
+            # Update the nodes free degrees list
+            self.nodes_free_deg[i] = self.nodes_degrees.get(i, 0) - 1
+            self.nodes_free_deg[newly_inf_id] = 0
+
+        return False
 
 
