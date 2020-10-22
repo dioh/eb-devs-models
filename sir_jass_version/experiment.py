@@ -83,6 +83,7 @@ def run_single(retry=0):
     sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
     sim.setDSDEVS(True)
+    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
     # sim.setVerbose(None)
     sim.simulate()
     dataframe = pd.DataFrame(environ.stats)
@@ -90,7 +91,8 @@ def run_single(retry=0):
     tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='sir_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
     # dataframe.to_csv("results_%s_emergence_%s_retry_%d.csv" % (Parameters.TOPOLOGY_FILE, Parameters.EMERGENT_MODEL, retry), header=False)
-
+    outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
+    nx.write_gml(environ.G, outfilename)
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
@@ -120,9 +122,7 @@ def run_multiple_retries():
 
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
 
-    environ = Environment(name='Env')
-    outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
-    nx.write_gml(environ.G, outfilename)
+
 
 run_multiple_retries()
 

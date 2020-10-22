@@ -346,7 +346,7 @@ class Environment(CoupledDEVS):
         self.nodes_free_deg[newly_inf.id] = 0
         grados = list(self.nodes_free_deg.values())
         
-        print(self.nodes_free_deg)
+        
 
         xk = np.array(grados)
         try:
@@ -355,7 +355,6 @@ class Environment(CoupledDEVS):
             __import__('ipdb').set_trace()
         
         pk = xk / float(sum(xk))
-        print(xk)
         #esto es para el evento SS
         p=0
         K=0
@@ -380,7 +379,8 @@ class Environment(CoupledDEVS):
             # Update the nodes free degrees list
             self.nodes_free_deg[i] = self.nodes_free_deg[i]-1
             self.G.add_edge(int(newly_inf_id), int(i), timestamp=current_time)
-
+        
+        print(list(nx.generate_adjlist(self.G)))
         return False
 
 
