@@ -72,7 +72,7 @@ from model import Environment, Parameters
 import model
 
 DURATION = 500
-RETRIES = 2
+RETRIES = 1
 output_columns = ['t','S','I','R','E','V', 'retry']
 
 def run_single(retry=0):
@@ -92,7 +92,7 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/graph_tp'
+    Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
     # TOPOLOGY_FILE,
     # N,
     # INITIAL_PROB,

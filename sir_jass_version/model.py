@@ -34,8 +34,8 @@ from functools import total_ordering
 class Parameters:
     TOPOLOGY_FILE = "grafo_muy_grande"
     EMERGENT_MODEL = False
-    INITIAL_PROB = 0.01
-    BETA_PROB = 5
+    INITIAL_PROB = 0
+    BETA_PROB = 10
     RHO_PROB = 0.9
     TW_SIZE = 5
     TW_TRHD = 50
@@ -59,7 +59,7 @@ class AgentState(object):
         self._name = name
         self.current_time = 0.0
 
-        self._id = id
+        self.id = id
         self._state = state
         self.vaccinated = False
         self._to_recover = False
@@ -148,7 +148,7 @@ class Agent(AtomicDEVS):
         self.in_ports_dict ={}
         self.out_ports_dict= {}
         # The initial state of the agent.
-        state = SIRStates.I if np.random.random() < Parameters.INITIAL_PROB else SIRStates.S
+        state = SIRStates.I if id==0 else SIRStates.S
         self.state = AgentState(self, self.name, id, state)
 
     def extTransition(self, inputs):
@@ -232,7 +232,7 @@ class Agent(AtomicDEVS):
         return inport, outport
 
     def modelTransition(self, state):
-        state['current_time'] = self.state.current_time
+        state["newly_infected"] = self.state
         return self.state.state == SIRStates.I
 
     def timeAdvance(self):
@@ -261,8 +261,9 @@ class Environment(CoupledDEVS):
 
 
         # Children states initialization
-        self.create_topology()
         self.nodes_free_deg = {}
+        self.create_topology()
+        
         self.time_window = {}
         self.agent_states = {}
         # Load the agent states dict:
@@ -306,6 +307,12 @@ class Environment(CoupledDEVS):
             self.connectPorts(out1, a2.in_event)
             self.connectPorts(out2, a1.in_event)
 
+        for agent in self.agents:
+            self.nodes_free_deg[agent]=agent.state.free_deg
+        
+        self.nodes_free_deg[0]=0
+        #self.agents[0].state.state=SIRStates.I
+        #set_infection_values(self.agents[0])      
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
@@ -330,29 +337,41 @@ class Environment(CoupledDEVS):
 
     def modelTransition(self, state): 
         # Sort a random value from the weighted list of nodes
+        newly_inf=state["newly_infected"]
+        newly_inf_id=newly_inf.id
+
+        newly_inf_deg=self.nodes_free_deg[newly_inf_id]
         grados = self.nodes_free_deg.values()
+
         xk = np.array(grados)
+        xk[newly_inf_id]=0
         pk = xk / float(sum(xk))
+        print(xk,newly_inf_id,xk[newly_inf_id])
         
         #esto es para el evento SS
         p=0
         K=0
 
-        deg=self.newly_infected_deg()+K*np.random.binomial(1,p)
+        deg=newly_inf_deg+K*np.random.binomial(1,p)
         
-        selected_agents_id = np.random.choice(self.nodes_free_deg.keys(),deg , p=pk)[0]
+        selected_agents = np.random.choice(self.nodes_free_deg.keys(),deg , p=pk)
+
+        print(np.isin(self.agents[newly_inf_id],selected_agents))
+        print(selected_agents)
 
         # Connect ports from/to that node
-        for i in selected_agents_id:
+        for i in selected_agents:
+            i0, o0 = self.agents[newly_inf_id].add_connections(i.state.id)
+            i1, o1 = i.add_connections(newly_inf_id)
 
-            i0, o0 = newly_inf_id.add_connections(i)
-            i1, o1 = self.agents[i].add_connections(newly_inf_id)
+        #i0, o0 = new_agent.add_connections(selected_agent_id)
+        #i1, o1 = self.agents[selected_agent_id].add_connections(new_ag_id)
 
             self.connectPorts(o0, i1)
             self.connectPorts(o1, i0)
 
             # Update the nodes free degrees list
-            self.nodes_free_deg[i] = self.nodes_degrees.get(i, 0) - 1
+            self.nodes_free_deg[i] = self.nodes_free_deg.get(i, 0) - 1
             self.nodes_free_deg[newly_inf_id] = 0
 
         return False
