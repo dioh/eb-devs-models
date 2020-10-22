@@ -32,7 +32,7 @@ from functools import total_ordering
 # np.random.seed(0)
 
 class Parameters:
-    TOPOLOGY_FILE = "grafo_muy_grande"
+    TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
     EMERGENT_MODEL = False
     INITIAL_PROB = 0
     BETA_PROB = 10
@@ -263,7 +263,7 @@ class Environment(CoupledDEVS):
         # Children states initialization
         self.nodes_free_deg = {}
         self.create_topology()
-        
+        self.G = nx.Graph()
         self.time_window = {}
         self.agent_states = {}
         # Load the agent states dict:
@@ -291,6 +291,7 @@ class Environment(CoupledDEVS):
         G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
         self.agents = [Agent(name="agent %d" % i, id=i)  for i in range(G.number_of_nodes())]
         #un agente infectado conectado con algunos vecinos S
+        self.G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
 
         for agent in self.agents:
             self.addSubModel(agent)
@@ -308,9 +309,10 @@ class Environment(CoupledDEVS):
             self.connectPorts(out2, a1.in_event)
 
         for agent in self.agents:
-            self.nodes_free_deg[agent]=agent.state.free_deg
+            self.nodes_free_deg[agent.state.id]=agent.state.free_deg
         
         self.nodes_free_deg[0]=0
+        self.G = nx.relabel.convert_node_labels_to_integers(self.G)
         #self.agents[0].state.state=SIRStates.I
         #set_infection_values(self.agents[0])      
 
@@ -338,19 +340,22 @@ class Environment(CoupledDEVS):
     def modelTransition(self, state): 
         # Sort a random value from the weighted list of nodes
         newly_inf=state["newly_infected"]
-        newly_inf_id=newly_inf.id
-
-        newly_inf_deg = self.nodes_free_deg[newly_inf_id]
+        current_time=newly_inf.current_time
+        newly_inf_id=newly_inf.id        
+        newly_inf_deg = newly_inf.free_deg
+        self.nodes_free_deg[newly_inf.id] = 0
         grados = list(self.nodes_free_deg.values())
+        
+        print(self.nodes_free_deg)
 
         xk = np.array(grados)
         try:
             xk[newly_inf_id]=0
         except:
             __import__('ipdb').set_trace()
-
-        pk = xk / float(sum(xk))
         
+        pk = xk / float(sum(xk))
+        print(xk)
         #esto es para el evento SS
         p=0
         K=0
@@ -359,13 +364,12 @@ class Environment(CoupledDEVS):
         
         selected_agents = np.random.choice(list(self.nodes_free_deg.keys()), deg, p=pk)
 
-        print(np.isin(self.agents[newly_inf_id],selected_agents))
-        print(selected_agents)
+        
 
         # Connect ports from/to that node
         for i in selected_agents:
-            i0, o0 = self.agents[newly_inf_id].add_connections(i.state.id)
-            i1, o1 = i.add_connections(newly_inf_id)
+            i0, o0 = self.agents[newly_inf_id].add_connections(i)
+            i1, o1 = self.agents[i].add_connections(newly_inf_id)
 
         #i0, o0 = new_agent.add_connections(selected_agent_id)
         #i1, o1 = self.agents[selected_agent_id].add_connections(new_ag_id)
@@ -374,8 +378,8 @@ class Environment(CoupledDEVS):
             self.connectPorts(o1, i0)
 
             # Update the nodes free degrees list
-            self.nodes_free_deg[i.state.id] = self.nodes_free_deg.get(i.state.id, 0) - 1
-            self.nodes_free_deg[newly_inf_id] = 0
+            self.nodes_free_deg[i] = self.nodes_free_deg[i]-1
+            self.G.add_edge(int(newly_inf_id), int(i), timestamp=current_time)
 
         return False
 

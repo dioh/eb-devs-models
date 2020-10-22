@@ -70,6 +70,7 @@ from model import Environment, Parameters
 #    ======================================================================
 
 import model
+import networkx as nx
 
 DURATION = 500
 RETRIES = 1
@@ -117,6 +118,11 @@ def run_multiple_retries():
     fin.close()
     for file in filenames: os.remove(file)
 
+    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+
+    environ = Environment(name='Env')
+    outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
+    nx.write_gml(environ.G, outfilename)
 
 run_multiple_retries()
 
