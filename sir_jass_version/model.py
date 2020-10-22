@@ -340,13 +340,16 @@ class Environment(CoupledDEVS):
         newly_inf=state["newly_infected"]
         newly_inf_id=newly_inf.id
 
-        newly_inf_deg=self.nodes_free_deg[newly_inf_id]
-        grados = self.nodes_free_deg.values()
+        newly_inf_deg = self.nodes_free_deg[newly_inf_id]
+        grados = list(self.nodes_free_deg.values())
 
         xk = np.array(grados)
-        xk[newly_inf_id]=0
+        try:
+            xk[newly_inf_id]=0
+        except:
+            __import__('ipdb').set_trace()
+
         pk = xk / float(sum(xk))
-        print(xk,newly_inf_id,xk[newly_inf_id])
         
         #esto es para el evento SS
         p=0
@@ -354,7 +357,7 @@ class Environment(CoupledDEVS):
 
         deg=newly_inf_deg+K*np.random.binomial(1,p)
         
-        selected_agents = np.random.choice(self.nodes_free_deg.keys(),deg , p=pk)
+        selected_agents = np.random.choice(list(self.nodes_free_deg.keys()), deg, p=pk)
 
         print(np.isin(self.agents[newly_inf_id],selected_agents))
         print(selected_agents)
@@ -371,7 +374,7 @@ class Environment(CoupledDEVS):
             self.connectPorts(o1, i0)
 
             # Update the nodes free degrees list
-            self.nodes_free_deg[i] = self.nodes_free_deg.get(i, 0) - 1
+            self.nodes_free_deg[i.state.id] = self.nodes_free_deg.get(i.state.id, 0) - 1
             self.nodes_free_deg[newly_inf_id] = 0
 
         return False
