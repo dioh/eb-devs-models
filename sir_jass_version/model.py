@@ -319,7 +319,7 @@ class Environment(CoupledDEVS):
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
         for state in x_b_micro: 
-            self.nodes_free_deg[state.id] = state.free_deg
+            #self.nodes_free_deg[state.id] = state.free_deg
             self.agent_states[state.name] = (state.state, state.emergence)
             s = i = r = e = 0
             for _, v in self.agent_states.items():
@@ -380,7 +380,7 @@ class Environment(CoupledDEVS):
             self.nodes_free_deg[i] = self.nodes_free_deg[i]-1
             self.G.add_edge(int(newly_inf_id), int(i), timestamp=current_time)
         
-        print(list(nx.generate_adjlist(self.G)))
+       
         return False
 
 
