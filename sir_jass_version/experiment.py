@@ -74,7 +74,7 @@ import networkx as nx
 
 DURATION = 500
 RETRIES = 1
-output_columns = ['t','S','I','R','E','V', 'retry']
+output_columns = ['t','S','I','R','E', 'retry']
 
 def run_single(retry=0):
     environ = Environment(name="SIR over CM")
@@ -86,11 +86,10 @@ def run_single(retry=0):
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
     # sim.setVerbose(None)
     sim.simulate()
-    dataframe = pd.DataFrame(environ.stats)
+    dataframe = pd.DataFrame(environ.log_agent.stats)
     dataframe['retry'] = retry
     tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='sir_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
-    # dataframe.to_csv("results_%s_emergence_%s_retry_%d.csv" % (Parameters.TOPOLOGY_FILE, Parameters.EMERGENT_MODEL, retry), header=False)
     outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
     nx.write_gml(environ.G, outfilename)
 

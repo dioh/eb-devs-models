@@ -51,7 +51,34 @@ def enum(**kwargs):
     return obj
 
 SIRStates = enum(S='Susceptible', I='Infected',  R='Recovered')
-ENVProps = enum(DECAY='decay_rate')
+ENVProps = enum(DECAY='decay_rate', AGENT_STATES='log data')
+
+class LogAgent(AtomicDEVS):
+    def __init__(self):
+        self.set_values()
+        self.stats = []
+        self.name='logAgent'
+        self.current_time = 0 
+        self.elapsed = 0 
+        self.my_input = {}
+
+    def saveLoginfo(self): 
+        parent_items = self.parent.getContextInformation(ENVProps.AGENT_STATES).items()
+        (unique, counts) = np.unique(np.array([it[1][0] for it in parent_items]), return_counts=True) 
+        frequencies = dict(zip(unique, counts))
+        log_data = [frequencies.get(key, 0) for key in SIRStates.__dict__.values()]
+        log_data.insert(0, self.current_time) 
+        self.stats.append(log_data)
+
+    def intTransition(self):
+        self.current_time += self.ta
+        self.saveLoginfo()
+
+    def timeAdvance(self):
+        return self.ta
+
+    def set_values(self):
+        self.ta = 1
 
 class AgentState(object):
     def __init__(self, model, name, id, state):
@@ -254,12 +281,6 @@ class Environment(CoupledDEVS):
         # Always call parent class' constructor FIRST:
         CoupledDEVS.__init__(self, name)
 
-        # Declare the coupled model's output ports:
-        # Autonomous, so no output ports
-
-        # Declare the coupled model's sub-models:
-
-
         # Children states initialization
         self.nodes_free_deg = {}
         self.create_topology()
@@ -268,24 +289,16 @@ class Environment(CoupledDEVS):
         self.agent_states = {}
         # Load the agent states dict:
         for ag in self.agents:
-            self.agent_states[ag.state.name] = (ag.state.state , ag.state.emergence, ag.state.vaccinated)
+            self.agent_states[ag.state.name] = (ag.state.state , ag.state.emergence)
 
         self.stats = []
 
-        s = i = r = e = 0
-        for _, v in self.agent_states.items():
-            s += v[0] == SIRStates.S
-            i += v[0] == SIRStates.I
-            r += v[0] == SIRStates.R
-        # e = self.parent.getContextInformation(ENVProps.DECAY, 0) > Parameters.TW_TRHD
-        e = False
-        vc = 0
-        self.stats.append((0, s, i, r, e, vc)) 
+        self.log_agent = LogAgent()
+        self.log_agent.OPorts = []
+        self.log_agent.IPorts = []
+        self.addSubModel(self.log_agent)
+        self.log_agent.saveLoginfo()
 
-
-        self.points = None
-        self.model = None
-        self.updatecount = 0
 
     def create_topology(self):
         G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
@@ -321,14 +334,11 @@ class Environment(CoupledDEVS):
         for state in x_b_micro: 
             self.nodes_free_deg[state.id] = state.free_deg
             self.agent_states[state.name] = (state.state, state.emergence)
-            s = i = r = e = 0
-            for _, v in self.agent_states.items():
-                s += v[0] == SIRStates.S
-                i += v[0] == SIRStates.I
-                r += v[0] == SIRStates.R
-                e += v[1]
-        self.stats.append((e_g, s, i, r, e)) 
 
+    def getContextInformation(self, property, *args, **kwargs):
+        super(Environment, self).getContextInformation(property)
+        if(property == ENVProps.AGENT_STATES):
+            return self.agent_states
 
     def select(self, immChildren):
         """
@@ -349,10 +359,7 @@ class Environment(CoupledDEVS):
         
 
         xk = np.array(grados)
-        try:
-            xk[newly_inf_id]=0
-        except:
-            __import__('ipdb').set_trace()
+        xk[newly_inf_id]=0
         
         pk = xk / float(sum(xk))
         #esto es para el evento SS
@@ -380,7 +387,6 @@ class Environment(CoupledDEVS):
             self.nodes_free_deg[i] = self.nodes_free_deg[i]-1
             self.G.add_edge(int(newly_inf_id), int(i), timestamp=current_time)
         
-        print(list(nx.generate_adjlist(self.G)))
         return False
 
 
