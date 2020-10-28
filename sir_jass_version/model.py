@@ -332,7 +332,7 @@ class Environment(CoupledDEVS):
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
         for state in x_b_micro: 
-            self.nodes_free_deg[state.id] = state.free_deg
+            #self.nodes_free_deg[state.id] = state.free_deg
             self.agent_states[state.name] = (state.state, state.emergence)
 
     def getContextInformation(self, property, *args, **kwargs):
