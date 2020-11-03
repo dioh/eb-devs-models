@@ -22,6 +22,7 @@ import pandas as pd
 import fileinput
 import tempfile
 import fnmatch
+from matplotlib import pyplot as plt
 # Import the model to be simulated
 from model import Environment, Parameters
 
@@ -71,6 +72,7 @@ from model import Environment, Parameters
 
 import model
 import networkx as nx
+from SIRSS_numeric import sir_num
 
 DURATION = 500
 RETRIES = 1
@@ -92,6 +94,7 @@ def run_single(retry=0):
     dataframe.to_csv(tmpfile, header=False, index=False)
     outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
     nx.write_gml(environ.G, outfilename)
+
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
@@ -121,10 +124,32 @@ def run_multiple_retries():
 
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
 
+    data = pd.read_csv(outfilename)
+    filtered_data = data[(data.t > 0)]
+    t,S,I,R=data.t,data.S,data.I,data.R
 
+    
+    fig_filename = outfilename.replace('csv', 'png')
 
+    Sn,In,Rn=sir_num(5,0.01,0,1,3,8,1000)
+    
+    fig=plt.figure()
+    plt.plot(S,label='S')
+    plt.plot(I,label='I')
+    plt.plot(R,label='R')
+    plt.legend()
+    plt.show()
+    plt.figure()
+    plt.plot(Sn,label='Snumeric')
+    plt.plot(In,label='Inumeric')
+    plt.plot(Rn,label='Rnumeric')
+    plt.legend()
+    plt.show()
 run_multiple_retries()
 
+#BETA_PROB = 10 RHO_PROB = 0.9
+#T,dt,EK,g,b,lamb,pob
+    
 #    ======================================================================
 
 # 5. (optional) Extract data from the simulated model

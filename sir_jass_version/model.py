@@ -35,8 +35,8 @@ class Parameters:
     TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
     EMERGENT_MODEL = False
     INITIAL_PROB = 0
-    BETA_PROB = 10
-    RHO_PROB = 0.9
+    BETA_PROB = 3
+    RHO_PROB = 1
     TW_SIZE = 5
     TW_TRHD = 50
     TW_BIN_SIZE = 15
@@ -105,10 +105,12 @@ class AgentState(object):
         prob = 0
         if self.model.OPorts:
             self.neighbors = len(self.model.OPorts)
-            prob = (1.0 / (self.neighbors + 1))
+            prob = (Parameters.RHO_PROB / (self.neighbors*Parameters.BETA_PROB + 0.001))
         self.to_recover = np.random.random() < prob
         # self.to_recover = np.random.random() >= Parameters.RHO_PROB
-        self.ta = np.random.exponential(Parameters.BETA_PROB)
+        if self.neighbors < 0:
+            import pdb;pdb.set_trace()
+        self.ta = np.random.exponential(float(1/(self.neighbors*Parameters.BETA_PROB + 0.001)))
 
     @property
     def name(self):
@@ -302,7 +304,7 @@ class Environment(CoupledDEVS):
 
     def create_topology(self):
         G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
-        self.agents = [Agent(name="agent %d" % i, id=i)  for i in range(G.number_of_nodes())]
+        self.agents = [Agent(name="agent %d" % i, id=i) for i in range(G.number_of_nodes())]
         #un agente infectado conectado con algunos vecinos S
         self.G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
 
