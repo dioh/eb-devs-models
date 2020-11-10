@@ -78,7 +78,7 @@ class LogAgent(AtomicDEVS):
         return self.ta
 
     def set_values(self):
-        self.ta = 1
+        self.ta = 0.001
 
 class AgentState(object):
     def __init__(self, model, name, id, state):
@@ -91,27 +91,31 @@ class AgentState(object):
         self.vaccinated = False
         self._to_recover = False
         self._emergence = False
-        self.neighbors = -1
-        self.free_deg = np.random.poisson(8)
+        self.neighbors = 0
+        self.free_deg = np.random.poisson(8) if id!=0 else 0
         self.model = model
 
-        if self.state == SIRStates.I:
-            self.set_infection_values()
-        else:
-            self.ta = INFINITY
+        #if self.state == SIRStates.I:
+        #    self.set_infection_values()
+        #else:
+        #if self.state == SIRStates.S:
+        self.ta = INFINITY
 
     def set_infection_values(self): 
     #todo: aca falta filtrar por vecinos susceptibles para tirar la moneda
+        #import pdb;pdb.set_trace()
         prob = 0
-        if self.model.OPorts:
-            self.neighbors = len(self.model.OPorts)
-            prob = (Parameters.RHO_PROB / (self.neighbors*Parameters.BETA_PROB + 0.001))
-        self.to_recover = np.random.random() < prob
+        if self.neighbors>0:
+            #self.neighbors = len(self.model.out_ports_dict)
+            prob = (Parameters.RHO_PROB / (self.neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB))
+            self.to_recover = np.random.random() < prob
         # self.to_recover = np.random.random() >= Parameters.RHO_PROB
-        if self.neighbors < 0:
-            import pdb;pdb.set_trace()
-        self.ta = np.random.exponential(float(1/(self.neighbors*Parameters.BETA_PROB + 0.001)))
-
+        #if self.neighbors < 0:
+        #    import pdb;pdb.set_trace()
+            self.ta = np.random.exponential(float(1/(self.neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB)))
+        else:
+            self.ta=np.random.exponential(float(1/Parameters.RHO_PROB))
+            
     @property
     def name(self):
         """I'm the 'heading' property."""
@@ -190,7 +194,7 @@ class Agent(AtomicDEVS):
 
         # If an agent is being infected.
         if self.state.state == SIRStates.S :
-            self.state.set_infection_values()
+            #self.state.set_infection_values()
             self.state.state = SIRStates.I
         # If it is recovered
         elif self.state.state == SIRStates.R:
@@ -258,6 +262,7 @@ class Agent(AtomicDEVS):
         outport = self.addOutPort(name=ag_id)
         self.out_ports_dict[ag_id] = outport
         self.state.free_deg -= 1
+        self.state.neighbors +=1
         return inport, outport
 
     def modelTransition(self, state):
@@ -322,14 +327,20 @@ class Environment(CoupledDEVS):
 
             self.connectPorts(out1, a2.in_event)
             self.connectPorts(out2, a1.in_event)
-
-        for agent in self.agents:
-            self.nodes_free_deg[agent.state.id]=agent.state.free_deg
         
         self.nodes_free_deg[0]=0
+        
+        for agent in self.agents:
+            self.nodes_free_deg[agent.state.id]=agent.state.free_deg
+            agent.state.neighbors = len(agent.OPorts)
+            #if agent.state.state == SIRStates.I:
+            #    agent.state.set_infection_values()
+        
+        
+        
         self.G = nx.relabel.convert_node_labels_to_integers(self.G)
-        #self.agents[0].state.state=SIRStates.I
-        #set_infection_values(self.agents[0])      
+        self.agents[0].state.state=SIRStates.I
+        self.agents[0].state.set_infection_values()      
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
@@ -356,8 +367,10 @@ class Environment(CoupledDEVS):
         newly_inf_id=newly_inf.id        
         newly_inf_deg = newly_inf.free_deg
         self.nodes_free_deg[newly_inf.id] = 0
+        #import pdb;pdb.set_trace()        
+        self.agents[newly_inf_id].state.free_deg = 0 
         grados = list(self.nodes_free_deg.values())
-        
+        #todo Avisar a los agentes los cambios en sus valores de vecinos
         
 
         xk = np.array(grados)
@@ -368,9 +381,9 @@ class Environment(CoupledDEVS):
         p=0
         K=0
 
-        deg=newly_inf_deg+K*np.random.binomial(1,p)
+        deg=max(0,newly_inf_deg+K*np.random.binomial(1,p))
         
-        selected_agents = np.random.choice(list(self.nodes_free_deg.keys()), deg, p=pk)
+        selected_agents = np.random.choice(max(0,list(self.nodes_free_deg.keys())), deg, p=pk)
 
         
 
@@ -388,6 +401,8 @@ class Environment(CoupledDEVS):
             # Update the nodes free degrees list
             self.nodes_free_deg[i] = self.nodes_free_deg[i]-1
             self.G.add_edge(int(newly_inf_id), int(i), timestamp=current_time)
+        
+        self.agents[newly_inf_id].state.set_infection_values()
         
         return False
 

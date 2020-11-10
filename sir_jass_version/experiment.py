@@ -74,7 +74,7 @@ import model
 import networkx as nx
 from SIRSS_numeric import sir_num
 
-DURATION = 500
+DURATION = 5
 RETRIES = 1
 output_columns = ['t','S','I','R','E', 'retry']
 
