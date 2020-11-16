@@ -402,7 +402,7 @@ class Environment(CoupledDEVS):
             self.nodes_free_deg[i] = self.nodes_free_deg[i]-1
             self.G.add_edge(int(newly_inf_id), int(i), timestamp=current_time)
         
-        self.agents[newly_inf_id].state.set_infection_values()
+        #self.agents[newly_inf_id].state.set_infection_values()
         
         return False
 
