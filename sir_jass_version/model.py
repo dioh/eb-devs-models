@@ -56,6 +56,7 @@ ENVProps = enum(DECAY='decay_rate', AGENT_STATES='log data')
 class LogAgent(AtomicDEVS):
     def __init__(self):
         self.set_values()
+        self.state = 'pepe'
         self.stats = []
         self.name='logAgent'
         self.current_time = 0 
@@ -107,7 +108,7 @@ class AgentState(object):
         prob = 0
         if self.neighbors>0:
             #self.neighbors = len(self.model.out_ports_dict)
-            prob = (Parameters.RHO_PROB / (self.neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB))
+            prob = (float(Parameters.RHO_PROB) / (self.neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB))
             self.to_recover = np.random.random() < prob
         # self.to_recover = np.random.random() >= Parameters.RHO_PROB
         #if self.neighbors < 0:
