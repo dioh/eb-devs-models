@@ -29,7 +29,8 @@ from pypdevs.DEVS import *
 from pypdevs.infinity import INFINITY
 from functools import total_ordering
 
-# np.random.seed(0)
+np.random.seed(0) # con este anda bien
+np.random.seed(1) # con este rompe
 
 class Parameters:
     TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
@@ -103,8 +104,7 @@ class AgentState(object):
         self.ta = INFINITY
 
     def set_infection_values(self): 
-    #todo: aca falta filtrar por vecinos susceptibles para tirar la moneda
-        #import pdb;pdb.set_trace()
+        #todo: aca falta filtrar por vecinos susceptibles para tirar la moneda
         prob = 0
         if self.neighbors>0:
             #self.neighbors = len(self.model.out_ports_dict)
@@ -113,9 +113,9 @@ class AgentState(object):
         # self.to_recover = np.random.random() >= Parameters.RHO_PROB
         #if self.neighbors < 0:
         #    import pdb;pdb.set_trace()
-            self.ta = np.random.exponential(float(1/(self.neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB)))
+            self.ta = np.random.exponential(float(1)/(self.neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB))
         else:
-            self.ta=np.random.exponential(float(1/Parameters.RHO_PROB))
+            self.ta=np.random.exponential(float(1)/Parameters.RHO_PROB)
             
     @property
     def name(self):
@@ -229,17 +229,18 @@ class Agent(AtomicDEVS):
 
         return self.state
 
-    def __lt__(self, other):
-        return self.name < other.name
+    # def __eq__(self, other):
+    #     return self.state.name == other.state.name
 
-    def __eq__(self, other):
-        return self.state.name == other.state.name
-
-    def __ne__(self, other):
-        return not self.state.name == other.state.name
+    # def __ne__(self, other):
+    #     return not self.state.name == other.state.name
 
     def __lt__(self, other):
-        return self.state.name < other.state.name
+        if other.state is None:
+            other_name = other.name
+        else:
+            other_name =other.state.name
+        return self.state.name < other_name
 
     def __hash__(self):
         return hash(self.state.name)
@@ -275,7 +276,8 @@ class Agent(AtomicDEVS):
         Time-Advance Function.
         """
 
-        # if self.state.state == SIRStates.I
+        if self.state.state == SIRStates.I:
+            self.state.set_infection_values()
         # Compute 'ta', the time to the next scheduled internal transition,
         # based (typically) on current State.
         return self.state.ta
@@ -371,6 +373,8 @@ class Environment(CoupledDEVS):
         #import pdb;pdb.set_trace()        
         self.agents[newly_inf_id].state.free_deg = 0 
         grados = list(self.nodes_free_deg.values())
+        # if any(np.array(self.nodes_free_deg.values()) < 0):
+        #     __import__('ipdb').set_trace()
         #todo Avisar a los agentes los cambios en sus valores de vecinos
         
 
@@ -385,6 +389,8 @@ class Environment(CoupledDEVS):
         deg=max(0,newly_inf_deg+K*np.random.binomial(1,p))
         
         selected_agents = np.random.choice(max(0,list(self.nodes_free_deg.keys())), deg, p=pk)
+        if any([ self.agents[ag].state.free_deg <= 0 for ag in selected_agents]):
+            __import__('ipdb').set_trace()
 
         
 
