@@ -76,7 +76,7 @@ from SIRSS_numeric import sir_num
 
 DURATION = 5
 RETRIES = 1
-output_columns = ['t','S','I','R','E', 'retry']
+output_columns = ['t','I','S','R','E', 'retry']
 
 def run_single(retry=0):
     environ = Environment(name="SIR over CM")
@@ -131,18 +131,16 @@ def run_multiple_retries():
     
     fig_filename = outfilename.replace('csv', 'png')
 
-    Sn,In,Rn=sir_num(5,0.01,0,1,3,8,1000)
+    Sn,In,Rn=sir_num(5000*0.0009,0.0009,0,1,3,8,10000)
     
     fig=plt.figure()
     plt.plot(S,label='S')
     plt.plot(I,label='I')
     plt.plot(R,label='R')
-    plt.legend()
-    plt.show()
-    plt.figure()
-    plt.plot(Sn,label='Snumeric')
-    plt.plot(In,label='Inumeric')
-    plt.plot(Rn,label='Rnumeric')
+   
+    plt.plot(199*Sn,label='Snumeric')
+    plt.plot(199*In,label='Inumeric')
+    plt.plot(199*Rn,label='Rnumeric')
     plt.legend()
     plt.show()
 run_multiple_retries()

@@ -29,8 +29,8 @@ from pypdevs.DEVS import *
 from pypdevs.infinity import INFINITY
 from functools import total_ordering
 
-np.random.seed(0) # con este anda bien
-np.random.seed(1) # con este rompe
+#np.random.seed(0) # con este anda bien
+#np.random.seed(1) # con este rompe
 
 class Parameters:
     TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
@@ -371,7 +371,7 @@ class Environment(CoupledDEVS):
         newly_inf_deg = newly_inf.free_deg
         self.nodes_free_deg[newly_inf.id] = 0
         #import pdb;pdb.set_trace()        
-        self.agents[newly_inf_id].state.free_deg = 0 
+        #self.agents[newly_inf_id].state.free_deg = 0 
         grados = list(self.nodes_free_deg.values())
         # if any(np.array(self.nodes_free_deg.values()) < 0):
         #     __import__('ipdb').set_trace()
@@ -381,6 +381,10 @@ class Environment(CoupledDEVS):
         xk = np.array(grados)
         xk[newly_inf_id]=0
         
+        if sum(xk) == 0:
+            return False
+        
+        
         pk = xk / float(sum(xk))
         #esto es para el evento SS
         p=0
@@ -388,7 +392,13 @@ class Environment(CoupledDEVS):
 
         deg=max(0,newly_inf_deg+K*np.random.binomial(1,p))
         
-        selected_agents = np.random.choice(max(0,list(self.nodes_free_deg.keys())), deg, p=pk)
+        if deg > sum(pk>0):
+            return False
+        
+        if any(pk < 0):
+            import pdb;pdb.set_trace()
+        
+        selected_agents = np.random.choice(max(0,list(self.nodes_free_deg.keys())), deg, p=pk,replace=False)
         if any([ self.agents[ag].state.free_deg <= 0 for ag in selected_agents]):
             __import__('ipdb').set_trace()
 
@@ -410,7 +420,7 @@ class Environment(CoupledDEVS):
             self.G.add_edge(int(newly_inf_id), int(i), timestamp=current_time)
         
         #self.agents[newly_inf_id].state.set_infection_values()
-        
+        self.agents[newly_inf_id].state.free_deg = 0
         return False
 
 
