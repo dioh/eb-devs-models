@@ -76,8 +76,8 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 1000
-RETRIES = 1
+DURATION = 500
+RETRIES = 20
 
 
 def run_single(retry=0):
@@ -123,7 +123,7 @@ def run_multiple_retries():
     if not os.path.exists("results"):
         os.mkdir("results")
 
-    output_columns = ['t', 'given_mean', 'retry']
+    output_columns = ['t', 'given_mean',  'retry']
     with open(outfilename, 'w') as fout:
         fout.write(",".join(output_columns))
         fout.write('\n')
@@ -136,14 +136,19 @@ def run_multiple_retries():
 
     for file in filenames: os.remove(file)
 
-    data = pd.read_csv(outfilename, header=0)
-    # filtered_data = data[(data.t > 0)]
-    # plt.figure(figsize=(12,8))
+    data = pd.read_csv(outfilename, header=0, names=['t', 'givers_mean', 'retry'])
+    filtered_data = data[(data.t > 0)]
+    plt.figure(figsize=(12,8))
 
-    # ax = sns.pointplot(x="t", y="number_of_cultures", data=filtered_data, ci="sd", capsize=.2, dodge=True)
-    # ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-    # fig_filename = outfilename.replace('csv', 'png')
-    # ax.get_figure().savefig(fig_filename)
+    ax = sns.pointplot( x="t", y="givers_mean", data=filtered_data, ci="sd", capsize=.2, dodge=True)
+    for ind, label in enumerate(ax.get_xticklabels()):
+        if ind % 10 == 0:  # every 10th label is kept
+            label.set_visible(True)
+        else:
+            label.set_visible(False)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+    fig_filename = outfilename.replace('csv', 'png')
+    ax.get_figure().savefig(fig_filename)
 
 
 run_multiple_retries()
