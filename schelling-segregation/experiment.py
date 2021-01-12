@@ -80,7 +80,7 @@ DURATION = 1000
 RETRIES = 10
 
 def run_single(retry=0):
-    environ = Environment(name='Env')
+    environ = Environment(name="Env%d"%retry)
     sim = Simulator(environ)
     sim.setTerminationTime(DURATION)
     sim.setTerminationCondition(environ.termination)
@@ -98,17 +98,30 @@ def run_multiple_retries():
 
         stats.append( logA.stats )
 
-    fig, ax = plt.subplots()
     params = "POPULATION_SIZE: %d\n" % model.Parameters.POPULATION_SIZE
     params+= "GRID_SIZE: (%d,%d)\n" % model.Parameters.GRID_SIZE
     params+= "RED_PROBABILITY: %.2f\n" % model.Parameters.RED_PROBABILITY
-    params+= "HAPPINESS_THRESH: %.2f" % model.Parameters.HAPPINESS_THRESHOLD
-    for s in stats:
-        x, y = zip(* s)
-        plt.plot( x,y )
-    plt.text(0.6, 0.9, params, horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
-    plt.savefig("results/scheling-%d-%d-%d-%.2f-%.2f.png" % (model.Parameters.POPULATION_SIZE, model.Parameters.GRID_SIZE[0], model.Parameters.GRID_SIZE[1], model.Parameters.RED_PROBABILITY, model.Parameters.HAPPINESS_THRESHOLD))
-    plt.show()
+    #params+= "HAPPINESS_THRESH: %.2f" % model.Parameters.HAPPINESS_THRESHOLD
 
-run_multiple_retries()
+    print stats
+    avgs = [ np.average([ stats[j][i][1] for j in range(len(stats)) if i<len(stats[j]) ]) for i in range(len(stats[0])) ]
+    stds = [ np.std([ stats[j][i][1] for j in range(len(stats)) if i<len(stats[j]) ]) for i in range(len(stats[0])) ]
 
+    x, y = zip(* stats[0])
+    plt.errorbar( x, avgs, yerr=stds, label="%.2f" % model.Parameters.HAPPINESS_THRESHOLD )
+
+    return params
+
+fig, ax = plt.subplots()
+
+model.Parameters.POPULATION_SIZE = 200
+for ht in [0.05,0.20,0.35,0.50,0.65,0.80,0.95]:
+	model.Parameters.HAPPINESS_THRESHOLD = ht
+	params = run_multiple_retries()
+
+plt.legend(loc="upper right")
+plt.xlabel("Time")
+plt.ylabel("Happiness Threshold")
+#plt.text(0.6, 0.9, params, horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
+plt.savefig("results/scheling-%d-%d-%d-%.2f-%.2f.png" % (model.Parameters.POPULATION_SIZE, model.Parameters.GRID_SIZE[0], model.Parameters.GRID_SIZE[1], model.Parameters.RED_PROBABILITY, model.Parameters.HAPPINESS_THRESHOLD))
+plt.show()

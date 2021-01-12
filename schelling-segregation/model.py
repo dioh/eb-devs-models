@@ -146,13 +146,13 @@ class Agent(AtomicDEVS):
         return self.state.ta
 
     def __eq__(self, other):
-        return self.state.name == other.state.name
+        return self.state.name == other.state.name if (self.state is not None and other.state is not None) else False
 
     def __ne__(self, other):
-        return not self.state.name == other.state.name
+        return not self.state.name == other.state.name if (self.state is not None and other.state is not None) else False
 
     def __lt__(self, other):
-        return self.state.name < other.state.name
+        return self.state.name < other.state.name if (self.state is not None and other.state is not None) else False
 
     def __hash__(self):
         return hash(self.state.name)
@@ -182,7 +182,7 @@ class Environment(CoupledDEVS):
         agent_positions = random.sample(range(Parameters.GRID_SIZE[0] * Parameters.GRID_SIZE[1]), Parameters.POPULATION_SIZE)
         for i, pos in enumerate(agent_positions):
             ag_id = int(i)
-            grid_pos = ( int(pos / 20), pos % 20 )
+            grid_pos = ( int(pos / Parameters.GRID_SIZE[0]), pos % Parameters.GRID_SIZE[1] )
             color = random_color()
 
             agent = Agent(name="agent %s" % i, id=ag_id, position = grid_pos, color = color)
@@ -217,7 +217,7 @@ class Environment(CoupledDEVS):
     ##########################################################
 
     def termination(self, prev, total):
-        return self.getContextInformation(ENVProps.PERCENTAGE_UNHAPPY)==0.0 
+        return self.getContextInformation(ENVProps.PERCENTAGE_UNHAPPY)==0.0 or self.log_agent.current_time > 40
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
 
