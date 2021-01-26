@@ -217,7 +217,7 @@ class Environment(CoupledDEVS):
     ##########################################################
 
     def termination(self, prev, total):
-        return self.getContextInformation(ENVProps.PERCENTAGE_UNHAPPY)==0.0 or self.log_agent.current_time > 40
+        return self.getContextInformation(ENVProps.PERCENTAGE_UNHAPPY)==0.0 or self.log_agent.current_time > 70
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
 
