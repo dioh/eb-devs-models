@@ -74,7 +74,7 @@ import model
 import networkx as nx
 from SIRSS_numeric import sir_num
 
-DURATION = 3
+DURATION = 10
 RETRIES = 1
 output_columns = ['t','I','S','R','E', 'retry']
 
@@ -97,7 +97,7 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_chico'
+    Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio_chico'
     # TOPOLOGY_FILE,
     # N,
     # INITIAL_PROB,

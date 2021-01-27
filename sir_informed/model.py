@@ -29,9 +29,6 @@ from pypdevs.DEVS import *
 from pypdevs.infinity import INFINITY
 from functools import total_ordering
 
-np.random.seed(1) # con este anda bien
-#np.random.seed(1) # con este rompe
-
 class Parameters:
     TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
     EMERGENT_MODEL = False
@@ -100,26 +97,20 @@ class AgentState(object):
         self.neighbors_state = {}
         self.share = True
 
-        #if self.state == SIRStates.I:
-        #    self.set_infection_values()
-        #else:
-        #if self.state == SIRStates.S:
         self.ta = INFINITY
 
     def set_infection_values(self): 
-        #todo: aca falta filtrar por vecinos susceptibles para tirar la moneda
+        # TODO: aca falta filtrar por vecinos susceptibles para tirar la moneda
         prob = 0
-        if self.neighbors>0:
-            #self.neighbors = len(self.model.out_ports_dict)
-            prob = (float(Parameters.RHO_PROB) / (self.neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB))
+        neighbors_states = self.neighbors_state.values()
+        if len(neighbors_states) >  0 and sum(np.array(neighbors_states) == SIRStates.S):
+            susceptible_neighbors = sum(np.array(neighbors_states) == SIRStates.S)
+            prob = (float(Parameters.RHO_PROB) / (susceptible_neighbors * Parameters.BETA_PROB+Parameters.RHO_PROB))
             self.to_recover = np.random.random() < prob
-        # self.to_recover = np.random.random() >= Parameters.RHO_PROB
-        #if self.neighbors < 0:
-        #    import pdb;pdb.set_trace()
-            self.ta = np.random.exponential(float(1)/(self.neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB))
+            self.ta = np.random.exponential(float(1)/(susceptible_neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB))
         else:
             self.ta=np.random.exponential(float(1)/Parameters.RHO_PROB)
-            
+
     @property
     def name(self):
         """I'm the 'heading' property."""
@@ -159,8 +150,6 @@ class AgentState(object):
 
     @ta.setter
     def ta(self, ta):
-        # if ta == 0 and self.current_time > 0:
-        #     __import__('ipdb').set_trace()
         self._ta = ta
 
     def get(self):
@@ -198,35 +187,28 @@ class Agent(AtomicDEVS):
 
         # Is it an outreach happening?
         self.state.share = False
-        print("External")
-        print(self.state)
+
         
         for k, v in inputs.items(): 
             if v == 'infect':
-                print("Infect")
                 # If an agent is being infected.
                 if self.state.state == SIRStates.S:
                     self.state.state = SIRStates.I
                     self.state.share = True
                 # If it is recovered
                 elif self.state.state == SIRStates.R:
-                    print("Ignore, recovered")
                     self.state.emergence = 0
                     self.state.ta = INFINITY
                 # If it is vaccinated
                 elif self.state.state == SIRStates.S and (self.state.emergence and Parameters.EMERGENT_MODEL):
-                    print("Ignore, emergence")
                     self.state.vaccinated = True
                     self.state.ta = INFINITY
                 # Any other case
                 else:
-                    print("Ignore, just a random msg")
                     self.state.ta -= self.elapsed
                 self.y_up = self.state
             else:
-                print("Receiving neighbor update")
-                self.state.neighbors_state[k.name] = v
-                print(str(self.state.neighbors_state))
+                self.state.neighbors_state[v[0]] = v[1]
                 # self.state.ta -= self.elapsed
         return self.state
 
@@ -239,18 +221,14 @@ class Agent(AtomicDEVS):
         self.state.emergence = 0
         self.state.share = False
 
-        print("Internal")
-        print(self.state)
         # If the coin toss resulted in recovery
         if self.state.to_recover:
-            print("Recovering share = True")
             self.state.state = SIRStates.R
+            self.state.to_recover = False
             self.state.share = True
         elif self.state.state == SIRStates.I:
-            print("Re-Infected")
             self.state.set_infection_values()
         else:
-            print("Else")
             self.state.ta = INFINITY
         self.y_up = self.state
 
@@ -267,21 +245,21 @@ class Agent(AtomicDEVS):
         return hash(self.state.name)
 
     def outputFnc(self):
-        print('output')
         ret = {}
         if self.state.share:
-            print("Propagating")
-            for outport in self.out_ports_dict.values():
-                ret[outport] = self.state.state 
-            print('ports output: %s ' % str(ret))
+            for outport in self.OPorts:
+                ret[outport] = (self.state.id, self.state.state)
             return ret
         if self.state.state == SIRStates.I and self.state.to_recover == False:
             if not self.OPorts:
                 return {}
-            print("Infecting")
-            outport = np.random.choice(self.OPorts)
-            ret = {outport: "infect"}
-            print('ports output: %s ' % str(ret))
+            susceptible_ids = [model for model, state in self.state.neighbors_state.items() if state == SIRStates.S]
+            if not susceptible_ids:
+                return {}
+            outmodel_id = np.random.choice(susceptible_ids)
+            outport_name = str('from%d-to-%d' % (self.state.id, outmodel_id))
+            outport = [outport for outport in self.OPorts if outport.name == outport_name]
+            ret = {outport[0]: "infect"}
             return ret
 
         return {}
@@ -297,25 +275,19 @@ class Agent(AtomicDEVS):
 
     def modelTransition(self, state):
         state["newly_infected"] = self.state
-        return self.state.state == SIRStates.I
+        return self.state.state == SIRStates.I and self.state.share == True
 
     def timeAdvance(self):
         """
         Time-Advance Function.
         """
 
-        print('time advance')
-        print(self.state)
         if self.state.share:
-            print('sharing')
             self.state.ta = 0
         elif self.state.state == SIRStates.I:
-
-            print('Infect ta')
-            # self.state.set_infection_values()
-            pass
+            self.state.set_infection_values()
+            
         elif self.state.state in (SIRStates.R, SIRStates.S):
-            print('R, S ta')
             self.state.ta = INFINITY
 
         # Compute 'ta', the time to the next scheduled internal transition,
@@ -370,6 +342,9 @@ class Environment(CoupledDEVS):
 
             self.connectPorts(out1, a2.in_event)
             self.connectPorts(out2, a1.in_event)
+
+            a1.state.neighbors_state[a2.state.id] = a2.state.state
+            a2.state.neighbors_state[a1.state.id] = a1.state.state
         
         self.nodes_free_deg[0]=0
         
@@ -413,8 +388,6 @@ class Environment(CoupledDEVS):
         #import pdb;pdb.set_trace()        
         #self.agents[newly_inf_id].state.free_deg = 0 
         grados = list(self.nodes_free_deg.values())
-        # if any(np.array(self.nodes_free_deg.values()) < 0):
-        #     __import__('ipdb').set_trace()
         #todo Avisar a los agentes los cambios en sus valores de vecinos
         
 
@@ -435,12 +408,7 @@ class Environment(CoupledDEVS):
         if deg > sum(pk>0):
             return False
         
-        if any(pk < 0):
-            import pdb;pdb.set_trace()
-        
         selected_agents = np.random.choice(max(0,list(self.nodes_free_deg.keys())), deg, p=pk,replace=False)
-        if any([ self.agents[ag].state.free_deg <= 0 for ag in selected_agents]):
-            __import__('ipdb').set_trace()
 
         
 
