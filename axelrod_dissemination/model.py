@@ -43,6 +43,7 @@ def threshold(t, theta, a, b):
 class Parameters:
     TOPOLOGY_FILE = ""
     CULTURE_LENGTH = 5
+    FASHION_RATE = 0.5
 
     EMERGENT_MODEL = False
     INITIAL_PROB = 0.05
@@ -83,7 +84,7 @@ def enum(**kwargs):
 
 ActionState = enum(P='PROPAGATING', N="NORMAL")
 
-ENVProps = enum(DECAY='decay_rate', NUMBER_OF_CULTURES='agent_states', INFECT_RATE= 'infect_rate')
+ENVProps = enum(DECAY='decay_rate', NUMBER_OF_CULTURES='agent_states', INFECT_RATE= 'infect_rate', FASHION='fashion')
 
 class AgentState(object):
     def __init__(self, name, id):
@@ -192,11 +193,17 @@ class Agent(AtomicDEVS):
             self.state.action_state = ActionState.N
             self.y_up = (self.state.id, self.state.culture)
         else:
-            neighbor_culture = self.get_neighbor()
-            similarity = self.similarity_with(neighbor_culture)
-            if similarity < 1 and np.random.random() < similarity:
-                self.mix_culture(neighbor_culture)
-                self.state.action_state = ActionState.P
+            toss = np.random.random()
+
+            if toss > Parameters.FASHION_RATE:
+                neighbor_culture = self.get_neighbor()
+                similarity = self.similarity_with(neighbor_culture)
+                if similarity < 1 and np.random.random() < similarity:
+                    self.mix_culture(neighbor_culture)
+                    self.state.action_state = ActionState.P
+            else:
+                feature, fashion = self.parent.getContextInformation(ENVProps.FASHION)
+                self.state.culture[feature] = fashion
         return self.state
 
     def __lt__(self, other):
@@ -282,6 +289,15 @@ class Environment(CoupledDEVS):
             if self.cultures:
                 unique_cultures = np.unique(np.array(list(self.cultures.values())), axis=0) 
             return len(unique_cultures)
+
+        if(property == ENVProps.FASHION):
+            # Get a random feature
+            mat = np.array(self.cultures.values())
+            randind = np.random.randint(Parameters.CULTURE_LENGTH)
+            feature = mat[:, randind]           
+            fashion_value = np.bincount(feature).argmax()
+
+            return randind, fashion_value
 
 
     def select(self, immChildren):

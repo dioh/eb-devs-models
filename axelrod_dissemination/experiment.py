@@ -77,7 +77,7 @@ from model import Environment, Parameters
 import model
 
 DURATION = 100
-RETRIES = 3
+RETRIES = 10
 
 
 def run_single(retry=0):
@@ -89,6 +89,7 @@ def run_single(retry=0):
     sim.simulate()
     dataframe = pd.DataFrame(environ.agents[-1].stats)
     dataframe['retry'] = retry
+    dataframe['fashion_rate'] = Parameters.FASHION_RATE
     tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/axelrod_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
 
@@ -101,11 +102,13 @@ def run_single(retry=0):
     # outfilenamestates = "results/sir_model_%s_emergence_%s_rt.csv" % (topology_name, Parameters.EMERGENT_MODEL)
     # pd.DataFrame(states).to_csv(outfilenamestates)
 
+FASHIONS = [0, 0.25, 0.5, 0.75, 1]
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'topology/lattice.adj'
 
-    for i in tqdm.tqdm(range(RETRIES)):
+    for i, fashion_rate in tqdm.tqdm(itertools.product(range(RETRIES), FASHIONS)):
+        Parameters.FASHION_RATE = fashion_rate
         run_single(retry=i)
 
     filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'axelrod_model*')]
@@ -116,7 +119,7 @@ def run_multiple_retries():
     if not os.path.exists("results"):
         os.mkdir("results")
 
-    output_columns = ['t', 'number_of_cultures', 'retry']
+    output_columns = ['t', 'number_of_cultures',  'retry', 'fashion_rate']
     with open(outfilename, 'w') as fout:
         fout.write(",".join(output_columns))
         fout.write('\n')
@@ -133,7 +136,8 @@ def run_multiple_retries():
     filtered_data = data[(data.t > 0)]
     plt.figure(figsize=(12,8))
 
-    ax = sns.pointplot(x="t", y="number_of_cultures", data=filtered_data, ci="sd", capsize=.2, dodge=True)
+    ax = sns.pointplot(x="t", y="number_of_cultures", data=filtered_data,
+            ci="sd", capsize=.2, dodge=True, hue='fashion_rate')
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
     fig_filename = outfilename.replace('csv', 'png')
     ax.get_figure().savefig(fig_filename)
