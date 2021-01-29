@@ -17,15 +17,11 @@
 from pypdevs.simulator import Simulator
 import itertools
 import os
+import progressbar
 import pandas as pd
-import tqdm
-import networkx as nx
 import fileinput
 import tempfile
 import fnmatch
-import shutil
-import numpy as np
-import seaborn as sns
 from matplotlib import pyplot as plt
 # Import the model to be simulated
 from model import Environment, Parameters
@@ -75,76 +71,83 @@ from model import Environment, Parameters
 #    ======================================================================
 
 import model
+import networkx as nx
+from SIRSS_numeric import sir_num
 
-DURATION = 100
-RETRIES = 10
-
+DURATION = 10
+RETRIES = 1
+output_columns = ['t','I','S','R','E', 'retry']
 
 def run_single(retry=0):
-    environ = Environment(name='Env')
+    environ = Environment(name="SIR over CM")
     sim = Simulator(environ)
+    initial_states = [(ag.state.name, ag.state.state, 0) for ag in environ.agents] 
     sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
-    # sim.setVerbose(None)
+    sim.setDSDEVS(True)
+    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+    sim.setVerbose(None)
     sim.simulate()
-    dataframe = pd.DataFrame(environ.agents[-1].stats)
+    dataframe = pd.DataFrame(environ.log_agent.stats)
     dataframe['retry'] = retry
-    dataframe['fashion_rate'] = Parameters.FASHION_RATE
-    tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/axelrod_model', delete=False)
+    tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='sir_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
+    outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
+    nx.write_gml(environ.G, outfilename)
 
-    # topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-
-    # outfilename = "results/sir_model_%s_emergence_%s_graph.gml" % (topology_name, Parameters.EMERGENT_MODEL)
-    # nx.write_gml(environ.G, outfilename)
-
-    # states = [(ag.state.id, ag.state.infected, ag.state.infected_time, ag.state.infected_end_time) for ag in environ.agents[:-1] if ag.state.infected_time > -1]
-    # outfilenamestates = "results/sir_model_%s_emergence_%s_rt.csv" % (topology_name, Parameters.EMERGENT_MODEL)
-    # pd.DataFrame(states).to_csv(outfilenamestates)
-
-FASHIONS = [0, 0.25, 0.5, 0.75, 1]
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'topology/lattice.adj'
-
-    for i, fashion_rate in tqdm.tqdm(itertools.product(range(RETRIES), FASHIONS)):
-        Parameters.FASHION_RATE = fashion_rate
+    Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio_chico'
+    # TOPOLOGY_FILE,
+    # N,
+    # INITIAL_PROB,
+    # INFECT_PROB,
+    # BETA_PROB,
+    # RHO_PROB,
+    # RECOV_THRHLD,
+    for i in progressbar.progressbar(range(RETRIES)):
         run_single(retry=i)
 
-    filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'axelrod_model*')]
+    filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'sir_model*')]
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    outfilename = "results/axelrod_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
+    outfilename = "results/sir_model_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
     fin = fileinput.input(filenames)
-
-    if not os.path.exists("results"):
-        os.mkdir("results")
-
-    output_columns = ['t', 'number_of_cultures',  'retry', 'fashion_rate']
     with open(outfilename, 'w') as fout:
         fout.write(",".join(output_columns))
         fout.write('\n')
 
+        for line in fin:
+            fout.write(line)
 
-    with open(outfilename, 'ab') as fout:
-        for filename in filenames:
-            with open(filename, 'rb') as readfile:
-                shutil.copyfileobj(readfile, fout)
-
+    fin.close()
     for file in filenames: os.remove(file)
 
-    data = pd.read_csv(outfilename, header=0)
+    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+
+    data = pd.read_csv(outfilename)
     filtered_data = data[(data.t > 0)]
-    plt.figure(figsize=(12,8))
+    t,S,I,R=data.t,data.S,data.I,data.R
 
-    ax = sns.pointplot(x="t", y="number_of_cultures", data=filtered_data,
-            ci="sd", capsize=.2, dodge=True, hue='fashion_rate')
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+    
     fig_filename = outfilename.replace('csv', 'png')
-    ax.get_figure().savefig(fig_filename)
 
-
+    Sn,In,Rn=sir_num(5000*0.0009,0.0009,0,1,3,8,10000)
+    
+    fig=plt.figure()
+    plt.plot(S,label='S')
+    plt.plot(I,label='I')
+    plt.plot(R,label='R')
+   
+    plt.plot(199*Sn,label='Snumeric')
+    plt.plot(199*In,label='Inumeric')
+    plt.plot(199*Rn,label='Rnumeric')
+    plt.legend()
+    plt.show()
 run_multiple_retries()
 
+#BETA_PROB = 10 RHO_PROB = 0.9
+#T,dt,EK,g,b,lamb,pob
+    
 #    ======================================================================
 
 # 5. (optional) Extract data from the simulated model
