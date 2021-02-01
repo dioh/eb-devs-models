@@ -76,8 +76,8 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 500
-RETRIES = 20
+DURATION = 1000
+RETRIES = 10
 
 
 def run_single(retry=0):
@@ -140,7 +140,7 @@ def run_multiple_retries():
     filtered_data = data[(data.t > 0)]
     plt.figure(figsize=(12,8))
 
-    ax = sns.pointplot( x="t", y="givers_mean", data=filtered_data, ci="sd", capsize=.2, dodge=True)
+    ax = sns.pointplot( x="t", y="givers_mean", data=filtered_data)#, ci="sd", capsize=.2, dodge=True)
     for ind, label in enumerate(ax.get_xticklabels()):
         if ind % 10 == 0:  # every 10th label is kept
             label.set_visible(True)

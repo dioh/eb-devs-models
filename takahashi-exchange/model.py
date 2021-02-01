@@ -55,6 +55,7 @@ def enum(**kwargs):
 ActionState = enum(P='PROPAGATING', N="NORMAL")
 
 ENVProps = enum(DECAY='decay_rate',
+        NAGENTS='Nagents',
         GIVERS_GREATER_THAN='Givers',
         GIVERS_MEAN='Givers Mean values',
         GIVERS_SD='Givers SD values',
@@ -106,6 +107,7 @@ class LogAgent(AtomicDEVS):
 
     def saveLoginfo(self): 
         givers_mean = self.parent.getContextInformation(ENVProps.GIVERS_MEAN)
+        Nagents = self.parent.getContextInformation(ENVProps.NAGENTS)
         stats = (self.current_time, givers_mean)
         self.stats.append(stats) 
 
@@ -190,8 +192,8 @@ class Agent(AtomicDEVS):
             self.y_up = {'given_credits': (self.state.id, self.state.gg),
                 'total_credits': (self.state.id, self.state.credits)}
 
-        if self.state.end_of_gen and self.state.current_time % Parameters.TRIALS:
-            __import__('ipdb').set_trace()
+        #if self.state.end_of_gen and self.state.current_time % Parameters.TRIALS:
+        #    __import__('ipdb').set_trace()
 
         return self.state
 
@@ -293,39 +295,25 @@ class Environment(CoupledDEVS):
                 elem[1] <= g_mean - 1 * (g_sd),
                 self.total_credits.items()))
 
-        to_replicate_once = dict(filter(lambda elem: \
-                elem[1] > g_mean - 1 * (g_sd) and elem[1] < g_mean + 1 * (g_sd),
-                self.total_credits.items()))
-
+        print ("ITEMS",self.total_credits.items())
+        print (to_duplicate)
+        print (to_eliminate)
 
         # Remove the ones to eliminate
         for model_id in to_eliminate.keys():
             self.removeSubModel(self.agents[model_id])
             del self.agents[model_id]
 
+        # Duplicate models.
         new_agents = {}
-        # Replicate models.
-        for model_id in []: # to_replicate_once.keys():
+        for model_id in to_duplicate.keys():
             if len(self.agents) < Parameters.MAX_AG:
-                new_id = self.last_agent_id
                 self.last_agent_id += 1
+                new_id = self.last_agent_id
+                print(new_id ,model_id)
                 agent = self.agents[model_id].new_instance(new_id)
                 self.agents[new_id] = self.addSubModel(agent)
                 new_agents[new_id] = agent
-            
-        # Duplicate models.
-        for model_id in to_duplicate.keys():
-            for _ in range(1):
-                if len(self.agents) < Parameters.MAX_AG:
-                    new_id = self.last_agent_id
-                    try:
-                        agent = self.agents[model_id].new_instance(new_id)
-                    except Exception as e:
-                        __import__('ipdb').set_trace()
-                        raise e
-                    self.agents[new_id] = self.addSubModel(agent)
-                    new_agents[new_id] = agent
-                    self.last_agent_id += 1
 
         self.total_credits = {}
         self.given_credits = {}
@@ -343,7 +331,6 @@ class Environment(CoupledDEVS):
                     i1, o1 = other_agent.add_connections(ag_id) 
                     self.connectPorts(o0, i1)
                     self.connectPorts(o1, i0) 
-
 
         self.updatecount = 0
         return False
@@ -377,6 +364,9 @@ class Environment(CoupledDEVS):
 
         if property == ENVProps.TOTAL_CRED_SD:
             return np.array(list(self.total_credits.values())).std()
+
+        if property == ENVProps.NAGENTS:
+            return len(self.agents)
 
     def select(self, immChildren):
         """
