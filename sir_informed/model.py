@@ -77,7 +77,7 @@ class LogAgent(AtomicDEVS):
         return self.ta
 
     def set_values(self):
-        self.ta = 0.1
+        self.ta = 0.001
 
 class AgentState(object):
     def __init__(self, model, name, id, state):
@@ -96,19 +96,20 @@ class AgentState(object):
 
         self.neighbors_state = {}
         self.share = True
+        self.model_transition = False
 
         self.ta = INFINITY
 
     def set_infection_values(self): 
-        # TODO: aca falta filtrar por vecinos susceptibles para tirar la moneda
         prob = 0
         neighbors_states = self.neighbors_state.values()
-        if len(neighbors_states) >  0 and sum(np.array(neighbors_states) == SIRStates.S):
+        if len(neighbors_states) >  0 and sum(np.array(neighbors_states) == SIRStates.S) > 0:
             susceptible_neighbors = sum(np.array(neighbors_states) == SIRStates.S)
             prob = (float(Parameters.RHO_PROB) / (susceptible_neighbors * Parameters.BETA_PROB+Parameters.RHO_PROB))
             self.to_recover = np.random.random() < prob
             self.ta = np.random.exponential(float(1)/(susceptible_neighbors*Parameters.BETA_PROB+Parameters.RHO_PROB))
         else:
+            self.to_recover = True
             self.ta=np.random.exponential(float(1)/Parameters.RHO_PROB)
 
     @property
@@ -188,12 +189,12 @@ class Agent(AtomicDEVS):
         # Is it an outreach happening?
         self.state.share = False
 
-        
         for k, v in inputs.items(): 
             if v == 'infect':
                 # If an agent is being infected.
                 if self.state.state == SIRStates.S:
                     self.state.state = SIRStates.I
+                    self.state.model_transition = True
                     self.state.share = True
                 # If it is recovered
                 elif self.state.state == SIRStates.R:
@@ -227,7 +228,7 @@ class Agent(AtomicDEVS):
             self.state.to_recover = False
             self.state.share = True
         elif self.state.state == SIRStates.I:
-            self.state.set_infection_values()
+            pass
         else:
             self.state.ta = INFINITY
         self.y_up = self.state
@@ -259,7 +260,10 @@ class Agent(AtomicDEVS):
             outmodel_id = np.random.choice(susceptible_ids)
             outport_name = str('from%d-to-%d' % (self.state.id, outmodel_id))
             outport = [outport for outport in self.OPorts if outport.name == outport_name]
-            ret = {outport[0]: "infect"}
+            if outport:
+                ret = {outport[0]: "infect"}
+            else:
+                __import__('ipdb').set_trace()
             return ret
 
         return {}
@@ -267,15 +271,18 @@ class Agent(AtomicDEVS):
     def add_connections(self, ag_id): 
         inport = self.addInPort(name=ag_id)
         self.in_ports_dict[ag_id] = inport
-        outport = self.addOutPort(name=ag_id)
+        outport = self.addOutPort(name="from%d-to-%d" % (self.state.id, ag_id))
         self.out_ports_dict[ag_id] = outport
         self.state.free_deg -= 1
         self.state.neighbors +=1
         return inport, outport
 
     def modelTransition(self, state):
-        state["newly_infected"] = self.state
-        return self.state.state == SIRStates.I and self.state.share == True
+        if self.state.model_transition and self.state.state == SIRStates.I:
+            state["newly_infected"] = self.state
+            self.state.model_transition = False
+            return True
+        return False
 
     def timeAdvance(self):
         """
@@ -286,7 +293,6 @@ class Agent(AtomicDEVS):
             self.state.ta = 0
         elif self.state.state == SIRStates.I:
             self.state.set_infection_values()
-            
         elif self.state.state in (SIRStates.R, SIRStates.S):
             self.state.ta = INFINITY
 
@@ -385,11 +391,7 @@ class Environment(CoupledDEVS):
         newly_inf_id=newly_inf.id        
         newly_inf_deg = newly_inf.free_deg
         self.nodes_free_deg[newly_inf.id] = 0
-        #import pdb;pdb.set_trace()        
-        #self.agents[newly_inf_id].state.free_deg = 0 
         grados = list(self.nodes_free_deg.values())
-        #todo Avisar a los agentes los cambios en sus valores de vecinos
-        
 
         xk = np.array(grados)
         xk[newly_inf_id]=0
@@ -411,14 +413,12 @@ class Environment(CoupledDEVS):
         selected_agents = np.random.choice(max(0,list(self.nodes_free_deg.keys())), deg, p=pk,replace=False)
 
         
+        neighbor_states = {}
 
         # Connect ports from/to that node
         for i in selected_agents:
             i0, o0 = self.agents[newly_inf_id].add_connections(i)
             i1, o1 = self.agents[i].add_connections(newly_inf_id)
-
-        #i0, o0 = new_agent.add_connections(selected_agent_id)
-        #i1, o1 = self.agents[selected_agent_id].add_connections(new_ag_id)
 
             self.connectPorts(o0, i1)
             self.connectPorts(o1, i0)
@@ -426,8 +426,10 @@ class Environment(CoupledDEVS):
             # Update the nodes free degrees list
             self.nodes_free_deg[i] = self.nodes_free_deg[i]-1
             self.G.add_edge(int(newly_inf_id), int(i), timestamp=current_time)
-        
-        #self.agents[newly_inf_id].state.set_infection_values()
+            neighbor_states[i] = self.agents[i].state.state
+            self.agents[i].state.neighbors_state[newly_inf_id] = self.agents[newly_inf_id].state.state
+
+        self.agents[newly_inf_id].state.neighbors_state = neighbor_states
         self.agents[newly_inf_id].state.free_deg = 0
         return False
 

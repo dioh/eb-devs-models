@@ -74,7 +74,7 @@ import model
 import networkx as nx
 from SIRSS_numeric import sir_num
 
-DURATION = 10
+DURATION = 100
 RETRIES = 1
 output_columns = ['t','I','S','R','E', 'retry']
 
@@ -86,7 +86,7 @@ def run_single(retry=0):
     sim.setClassicDEVS()
     sim.setDSDEVS(True)
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    sim.setVerbose(None)
+    # sim.setVerbose(None)
     sim.simulate()
     dataframe = pd.DataFrame(environ.log_agent.stats)
     dataframe['retry'] = retry
@@ -97,7 +97,7 @@ def run_single(retry=0):
 
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio_chico'
+    Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
     # TOPOLOGY_FILE,
     # N,
     # INITIAL_PROB,
@@ -131,7 +131,8 @@ def run_multiple_retries():
     
     fig_filename = outfilename.replace('csv', 'png')
 
-    Sn,In,Rn=sir_num(5000*0.0009,0.0009,0,1,3,8,10000)
+    # sir_num(T,dt,EK,ga,b,lamb,pob):
+    Sn,In,Rn=sir_num(5000*0.09,0.09,0,1,3,8,10000)
     
     fig=plt.figure()
     plt.plot(S,label='S')
