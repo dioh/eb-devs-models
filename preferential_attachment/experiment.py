@@ -15,6 +15,7 @@
 
 # Import code for model simulation:
 from pypdevs.simulator import Simulator
+import collections
 import itertools
 import os
 import pandas as pd
@@ -29,6 +30,60 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 # Import the model to be simulated
 from model import Environment, Parameters
+
+import numpy as np
+import scipy as sc
+from scipy import interpolate
+from scipy import optimize
+import pandas as pd
+
+
+def create_nodes_degrees_df(environ, retry):
+    nodes = []
+    degrees = []
+    for n, d in environ.G.degree():
+        nodes.append(n)
+        degrees.append(d)
+    degree_sequence = sorted(degrees, reverse=True)  # degree sequence
+    degreeCount = collections.Counter(degree_sequence)
+    deg, cnt = zip(*degreeCount.items())
+
+    df = pd.DataFrame({'degree':deg, 'frequency':cnt, 'retry':retry})
+
+    return df
+
+
+def func(x,b, c):
+        return x*b+c
+        
+def fit_power(df):
+
+    cnt = df.groupby('degree').mean().frequency.values
+    deg = np.unique(df.degree.values)
+    __import__('ipdb').set_trace()
+
+    res = sc.optimize.curve_fit(func, deg, np.log(cnt))
+    bbc = res[0][0]
+    ccc = res[0][1]
+    yajuste2 = func(np.array(deg), bbc, ccc)
+
+    plt.figure(figsize=(12,8))
+    pp = plt.plot(np.array(deg), np.exp(yajuste2))
+    sns.barplot(data=df, x='degree', y='frequency', color='gray')
+
+    # bp = plt.bar( df['degree'],df['frequency'])
+    plt.xlabel('Degree')
+    plt.ylabel('Frequency')
+    
+
+    # fig, ax = plt.subplots(2)
+    # ax[0].bar(deg, cnt, width=0.80, color="b")
+    # ax[1].plot(np.array(nodes),np.array(degrees),'.',label='datos')
+    # ax[1].plot(xdata,np.exp(yajuste),label='ajuste')
+    # plt.xlabel('nodos')
+    # plt.ylabel('grados')
+    plt.savefig('prueba.png')
+
 
 
 #    ======================================================================
@@ -76,8 +131,11 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 10000
+DURATION = 100
 RETRIES = 1
+
+
+dfs = []
 
 
 def run_single(retry=0):
@@ -99,10 +157,10 @@ def run_single(retry=0):
 
     outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
     nx.write_gml(environ.G, outfilename)
+    # ax = sns.distplot(environ.G.degree,  bins=10)
+    fig_filename = outfilename.replace('gml', 'png')
 
-    # states = [(ag.state.id, ag.state.infected, ag.state.infected_time, ag.state.infected_end_time) for ag in environ.agents[:-1] if ag.state.infected_time > -1]
-    # outfilenamestates = "results/sir_model_%s_emergence_%s_rt.csv" % (topology_name, Parameters.EMERGENT_MODEL)
-    # pd.DataFrame(states).to_csv(outfilenamestates)
+    dfs.append(create_nodes_degrees_df(environ, retry))
 
 
 def run_multiple_retries():
@@ -111,35 +169,9 @@ def run_multiple_retries():
     for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)
 
-    filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'model*')]
-    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    outfilename = "results/model_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
-    fin = fileinput.input(filenames)
+    df = pd.concat(dfs)
+    fit_power(df)
 
-    # if not os.path.exists("results"):
-    #     os.mkdir("results")
-
-    # output_columns = ['t', 'number_of_cultures', 'retry']
-    # with open(outfilename, 'w') as fout:
-    #     fout.write(",".join(output_columns))
-    #     fout.write('\n')
-
-
-    # with open(outfilename, 'ab') as fout:
-    #     for filename in filenames:
-    #         with open(filename, 'rb') as readfile:
-    #             shutil.copyfileobj(readfile, fout)
-
-    # for file in filenames: os.remove(file)
-
-    # data = pd.read_csv(outfilename, header=0)
-    # filtered_data = data[(data.t > 0)]
-    # plt.figure(figsize=(12,8))
-
-    # ax = sns.pointplot(x="t", y="number_of_cultures", data=filtered_data, ci="sd", capsize=.2, dodge=True)
-    # ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-    # fig_filename = outfilename.replace('csv', 'png')
-    # ax.get_figure().savefig(fig_filename)
 
 
 run_multiple_retries()
