@@ -100,10 +100,10 @@ class LogAgent(AtomicDEVS):
 
         grid = self.parent.getContextInformation(ENVProps.GRID)
         clear()
-        print( "==================================================== ")
-        print( "%.2f %.5f " % (self.current_time, percentage_unhappy))
-        print( "==================================================== " )
-        print( "\n".join( [ " ".join( [ c for c in row ] ) for row in grid ] ))
+        # print( "==================================================== ")
+        # print( "%.2f %.5f " % (self.current_time, percentage_unhappy))
+        # print( "==================================================== " )
+        # print( "\n".join( [ " ".join( [ c for c in row ] ) for row in grid ] ))
 
         stats = (self.current_time, percentage_unhappy)
         self.stats.append(stats)

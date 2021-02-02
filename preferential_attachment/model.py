@@ -43,35 +43,7 @@ def threshold(t, theta, a, b):
 
 class Parameters:
     TOPOLOGY_FILE = ""
-    CULTURE_LENGTH = 5
-
-    EMERGENT_MODEL = False
-    INITIAL_PROB = 0.05
-    RHO_PROB = 4.0
-    TW_SIZE = 5.0
-    TW_TRHD = 5.0
-    TW_BIN_SIZE = 15.0
-
-    NU = 10
-    A = NU
-    B = 0
-    CI = 10
-    CV = 1
-
-    U = staticmethod(threshold)
-
-    RECOVERY_TIME = 5.0
-    DEATH_TIME = 30.0 
-    RECOVERY_PROB = 0.95 
-
-    VACC_MODEL = False 
-
-    ALPHA_RATE =  0.4
-    BETA_RATE = 0.10 
-    GAMMA_RATE = 1.0/7
-
-    DEATH_MEAN_TIME = 15.0
-    RECOVERY_MEAN_TIME = 7
+    CONNECT_TO = 2
 
 DEBUG = True
 
@@ -84,7 +56,7 @@ def enum(**kwargs):
 
 ActionState = enum(P='PROPAGATING', N="NORMAL")
 
-ENVProps = enum(DECAY='decay_rate', NUMBER_OF_CULTURES='agent_states', INFECT_RATE= 'infect_rate')
+ENVProps = enum(DECAY='decay_rate', AVG_DEGREE='avg_degree', SD_DEGREE='sd_degree', NUM_NODES='num_nodes')
 
 class AgentState(object):
     def __init__(self, name, id, current_time = 0):
@@ -126,8 +98,10 @@ class LogAgent(AtomicDEVS):
         self.my_input = {}
 
     def saveLoginfo(self): 
-        number_of_cultures = self.parent.getContextInformation(ENVProps.NUMBER_OF_CULTURES)
-        stats = (self.current_time, number_of_cultures)
+        avg_degree = self.parent.getContextInformation(ENVProps.AVG_DEGREE)
+        sd_degree = self.parent.getContextInformation(ENVProps.SD_DEGREE)
+        num_nodes = self.parent.getContextInformation(ENVProps.NUM_NODES)
+        stats = (self.current_time, avg_degree, sd_degree, num_nodes)
         self.stats.append(stats) 
 
     def intTransition(self):
@@ -252,7 +226,15 @@ class Environment(CoupledDEVS):
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
+        if property == ENVProps.AVG_DEGREE:
+            degrees = self.G.degree()
+            return np.mean([v for _, v in degrees])
 
+        if property == ENVProps.SD_DEGREE:
+            degrees = self.G.degree()
+            return np.std([v for _, v in degrees])
+        if property == ENVProps.NUM_NODES:
+            return len(self.G.nodes)
 
     def select(self, immChildren):
         """
@@ -267,7 +249,9 @@ class Environment(CoupledDEVS):
         xk = np.array(grados)
         pk = xk / float(sum(xk))
 
-        selected_agent_id = np.random.choice(self.nodes_degrees.keys(), 1, p=pk)[0]
+        if len(self.nodes_degrees.keys()) < Parameters.CONNECT_TO:
+            return False
+        selected_agent_ids = np.random.choice(self.nodes_degrees.keys(), Parameters.CONNECT_TO, p=pk, replace=False)
 
         # Create a new node
         current_time = state['current_time']
@@ -278,24 +262,23 @@ class Environment(CoupledDEVS):
                 kwargs={'current_time':current_time}) 
         self.agents[new_ag_id] = self.addSubModel(new_agent)
 
-        # p_connect_density = stats.rv_discrete(name='custm', values=(self.nodes_degrees.keys(), pk))
-
-        # selected_agent2 = p_connect_density.rvs()
-
-        # Connect ports from/to that node
-        i0, o0 = new_agent.add_connections(selected_agent_id)
-        i1, o1 = self.agents[selected_agent_id].add_connections(new_ag_id)
-
-        self.connectPorts(o0, i1)
-        self.connectPorts(o1, i0)
-
-        # Update the nodes degrees list
-        self.nodes_degrees[selected_agent_id] = self.nodes_degrees.get(selected_agent_id, 0) + 1
-        self.nodes_degrees[new_ag_id] = self.nodes_degrees.get(selected_agent_id, 0) + 1
 
         # Update G
         self.G.add_node(int(new_ag_id))
-        self.G.add_edge(int(new_ag_id), int(selected_agent_id), timestamp=current_time)
+
+        # Connect ports from/to that node
+        for selected_agent_id in selected_agent_ids:
+            i0, o0 = new_agent.add_connections(selected_agent_id)
+            i1, o1 = self.agents[selected_agent_id].add_connections(new_ag_id)
+
+            self.connectPorts(o0, i1)
+            self.connectPorts(o1, i0)
+
+            # Update the nodes degrees list
+            self.nodes_degrees[selected_agent_id] = self.nodes_degrees.get(selected_agent_id, 0) + 1
+            self.nodes_degrees[new_ag_id] = self.nodes_degrees.get(selected_agent_id, 0) + 1
+            self.G.add_edge(int(new_ag_id), int(selected_agent_id), timestamp=current_time)
+
         self.G.nodes[int(new_ag_id)]['start'] = current_time
 
         return False 

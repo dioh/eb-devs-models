@@ -1,5 +1,70 @@
 # Takahashi's models of generalized exchange
 
+The global information model, is an evolutionary model where each generation
+goes throgh a series of trials. For each trial, an agent receives a fixed number of credits that
+may or may not share with a neighboring agent. The agents connection is
+complete, this means that each agent can give or receive from any other agent
+from the model. For each trial, an agent will choose a neighbor to give a
+number of its credits.
+
+The neighbor and credits are defined by two state variables:
+* The giving gene (gg) defines how many credits will give. This is an integer value
+  between 0 and 10 (borders included).
+* The tolerance gene (tg) defines how permisive it is with the neighboring altruism.
+  Its value goes from 0.1 to 2 (borders included).
+  During a trial, the agent will give to agents that have given at least
+  tg\*gg. If there are no agents that have given such amount of credits in the
+  previous trial it will give to the most giving agent.
+
+Agents receive more credits than the credits given. In the case of this model
+agents receive twice the given amount.
+
+After all trials finish, the evolutionary process starts removing
+all agents that their amount of total credits is smaller than the mean - std.
+The agents with more than mean + std credits will spawn a new generation. The
+ones that are between +/-std boundaries will remain during the next generation.
+
+The new agents spawned into the generation has 95% chances to remain as they were.
+A small percentage will go through a mutation of their gg and tg values.
+
+The new agents are added to the model while the number of agents is smaller
+than a fixed value (20 agents in accordance with the original model). Models
+exceeding that number are not created. New connections are made following the
+global model patterns.
+
+Mapping to EB-DEVS
+====================
+
+
+AgentState:
+  gg = rand int [0, 10]
+  tg = rand  [0.1, 2]
+  credits = 10
+  
+Init:
+  ta = 0
+  state = INIT
+  share culture to neighbors
+
+IntTransition:
+  choose a random neighbor
+  if random() < matching culture positions / culture lenth:
+    mix cultures:
+      find a random different position, copy this value to the transitioning model's culture
+      share the state with neighbors.
+
+ExtTransition:
+  update {neighbor_id: culture}
+
+
+Extension idea
+================
+
+* Use the hegemonic culture to mix towards it
+  - Si mi cultura se aleja mean + sd
+  - Comparar con resultado principal ya sea cambio de fase, cantidad de culturas, etc.
+
+
 ## Introduction
 
 In 2000 Takahashi (2000) developed two ingenious agent-based models to explain

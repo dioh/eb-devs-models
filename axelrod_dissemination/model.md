@@ -15,6 +15,8 @@ than a random value, then the process of cultura mixing starts. The process of
 cultural mix is done by choosing one of the different features in the culture
 array and agreeing to the same value.
 
+### Ajustar y que no se escapen detalles de conectividad por ejemplo
+
 Originally, links between agents are defined by proximity in the 2d plane.
 
 According to axelrod:
@@ -52,7 +54,7 @@ AgentState:
 Init:
   ta = 0
   state = INIT
-  share culture
+  share culture to neighbors
 
 IntTransition:
   choose a random neighbor
@@ -69,4 +71,6 @@ Extension idea
 ================
 
 * Use the hegemonic culture to mix towards it
+  - Si mi cultura se aleja mean + sd
+  - Comparar con resultado principal ya sea cambio de fase, cantidad de culturas, etc.
 

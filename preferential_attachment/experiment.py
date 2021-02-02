@@ -54,34 +54,32 @@ def create_nodes_degrees_df(environ, retry):
 
 
 def func(x,b, c):
-        return x*b+c
-        
+    return x*b +c
+
+def eval_func(x, b, c):
+    return np.exp(x*b + c)
+
+def func_powerlaw(x,  m, c):
+        return  x**m * c
+
 def fit_power(df):
 
     cnt = df.groupby('degree').mean().frequency.values
     deg = np.unique(df.degree.values)
-    __import__('ipdb').set_trace()
 
-    res = sc.optimize.curve_fit(func, deg, np.log(cnt))
-    bbc = res[0][0]
-    ccc = res[0][1]
-    yajuste2 = func(np.array(deg), bbc, ccc)
+    popt, pcov = sc.optimize.curve_fit(func_powerlaw, deg, cnt, maxfev=5000)
+    yajuste2 = func_powerlaw(np.array(deg), *popt)
 
     plt.figure(figsize=(12,8))
-    pp = plt.plot(np.array(deg), np.exp(yajuste2))
+    yajuste2 = func_powerlaw(np.linspace(min(deg), max(deg), 50), *popt)
+    sns.pointplot(x=np.linspace(min(deg), max(deg), 50), y=yajuste2)
     sns.barplot(data=df, x='degree', y='frequency', color='gray')
 
-    # bp = plt.bar( df['degree'],df['frequency'])
+    print(popt)
+
     plt.xlabel('Degree')
     plt.ylabel('Frequency')
     
-
-    # fig, ax = plt.subplots(2)
-    # ax[0].bar(deg, cnt, width=0.80, color="b")
-    # ax[1].plot(np.array(nodes),np.array(degrees),'.',label='datos')
-    # ax[1].plot(xdata,np.exp(yajuste),label='ajuste')
-    # plt.xlabel('nodos')
-    # plt.ylabel('grados')
     plt.savefig('prueba.png')
 
 
@@ -131,11 +129,12 @@ def fit_power(df):
 
 import model
 
-DURATION = 100
-RETRIES = 1
+DURATION = 100000
+RETRIES = 10
 
 
 dfs = []
+degrees_dfs = []
 
 
 def run_single(retry=0):
@@ -149,15 +148,14 @@ def run_single(retry=0):
 
     sim.simulate()
     dataframe = pd.DataFrame(environ.agents[-1].stats)
+    dataframe['connect_to'] = Parameters.CONNECT_TO
     dataframe['retry'] = retry
-    tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/model', delete=False)
-    dataframe.to_csv(tmpfile, header=False, index=False)
+    degrees_dfs.append(dataframe)
 
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
 
     outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
     nx.write_gml(environ.G, outfilename)
-    # ax = sns.distplot(environ.G.degree,  bins=10)
     fig_filename = outfilename.replace('gml', 'png')
 
     dfs.append(create_nodes_degrees_df(environ, retry))
@@ -166,11 +164,21 @@ def run_single(retry=0):
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'topology/graph_n10.adj'
 
-    for i in tqdm.tqdm(range(RETRIES)):
-        run_single(retry=i)
+    for connect_to in [1]: #, 2, 3]:
+        Parameters.CONNECT_TO = connect_to
+        for i in tqdm.tqdm(range(RETRIES)):
+            run_single(retry=i)
 
     df = pd.concat(dfs)
     fit_power(df)
+
+    degrees_df = pd.concat(degrees_dfs)
+    degrees_df.columns = ['t', 'avg_deg', 'sd_deg', 'num_nodes', 'connect_to', 'retry']
+
+    plt.figure(figsize=(12,8))
+    sns.relplot(x='t', y='avg_deg', kind='line', hue='connect_to', data=degrees_df)
+
+    plt.savefig('pruebadegs.png')
 
 
 
