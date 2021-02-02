@@ -62,8 +62,7 @@ def eval_func(x, b, c):
 def func_powerlaw(x,  m, c):
         return  x**m * c
 
-def fit_power(df):
-
+def fit_power(df, parameters):
     cnt = df.groupby('degree').mean().frequency.values
     deg = np.unique(df.degree.values)
 
@@ -75,12 +74,10 @@ def fit_power(df):
     sns.pointplot(x=np.linspace(min(deg), max(deg), 50), y=yajuste2)
     sns.barplot(data=df, x='degree', y='frequency', color='gray')
 
-    print(popt)
-
     plt.xlabel('Degree')
     plt.ylabel('Frequency')
     
-    plt.savefig('prueba.png')
+    plt.savefig('prueba_%s.png' % str(parameters))
 
 
 
@@ -129,7 +126,7 @@ def fit_power(df):
 
 import model
 
-DURATION = 100000
+DURATION = 10000
 RETRIES = 10
 
 
@@ -163,22 +160,25 @@ def run_single(retry=0):
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'topology/graph_n10.adj'
+    global degrees_dfs
+    global dfs
 
-    for connect_to in [1]: #, 2, 3]:
+    for connect_to in [1, 2, 3]:
         Parameters.CONNECT_TO = connect_to
         for i in tqdm.tqdm(range(RETRIES)):
             run_single(retry=i)
+        df = pd.concat(dfs)
+        fit_power(df, connect_to)
+        dfs = []
 
-    df = pd.concat(dfs)
-    fit_power(df)
+        degrees_df = pd.concat(degrees_dfs)
+        degrees_df.columns = ['t', 'avg_deg', 'sd_deg', 'num_nodes', 'connect_to', 'retry']
 
-    degrees_df = pd.concat(degrees_dfs)
-    degrees_df.columns = ['t', 'avg_deg', 'sd_deg', 'num_nodes', 'connect_to', 'retry']
+        plt.figure(figsize=(12,8))
+        sns.relplot(x='t', y='avg_deg',  data=degrees_df[degrees_df['t'] % 10 == 0], kind='line')
 
-    plt.figure(figsize=(12,8))
-    sns.relplot(x='t', y='avg_deg', kind='line', hue='connect_to', data=degrees_df)
-
-    plt.savefig('pruebadegs.png')
+        plt.savefig('pruebadegs_%s.png' % connect_to)
+        degrees_dfs = []
 
 
 
