@@ -113,11 +113,11 @@ def run_multiple_retries():
 fig, ax = plt.subplots()
 
 model.Parameters.POPULATION_SIZE = 200
-for ht in [0.05,0.20,0.35,0.50,0.65,0.80,0.95]:
+for ht in [0.20,0.35,0.50,0.65,0.80,0.95]:
 	model.Parameters.HAPPINESS_THRESHOLD = ht
 	run_multiple_retries()
 
-plt.legend(loc="upper right", fontsize=12)
+plt.legend(loc="upper right", fontsize=15, ncol=2)
 plt.xlim((0,40))
 plt.ylim((0,100))
 plt.xticks(fontsize=25)
