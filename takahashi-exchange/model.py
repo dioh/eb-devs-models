@@ -164,6 +164,9 @@ class Agent(AtomicDEVS):
             neighbor_to_give = np.random.choice(suitable_neighbors)
             outport = self.out_ports_dict.get(neighbor_to_give)
             return outport
+        else:
+            # TODO: Choose randomly from the others
+            raise Exception("Implementar aca la segunda condicion de Takahashi")
 
     def extTransition(self, inputs): 
         credits = list(inputs.values())[0]
@@ -191,9 +194,6 @@ class Agent(AtomicDEVS):
             self.state.credits -= self.state.gg
             self.y_up = {'given_credits': (self.state.id, self.state.gg),
                 'total_credits': (self.state.id, self.state.credits)}
-
-        #if self.state.end_of_gen and self.state.current_time % Parameters.TRIALS:
-        #    __import__('ipdb').set_trace()
 
         return self.state
 
@@ -236,10 +236,9 @@ class Environment(CoupledDEVS):
         self.log_agent.OPorts = []
         self.log_agent.IPorts = []
         self.addSubModel(self.log_agent)
-        # self.agents[-1] = log_agent
         self.log_agent.saveLoginfo()
 
-        self.given_credits = {v.state.id: Parameters.INIT_RESOURCES \
+        self.given_credits = {v.state.id: 0 #Parameters.INIT_RESOURCES \
                 for k, v in self.agents.items() if k != -1}
         self.received_credits = {}
         self.total_credits = {v.state.id: Parameters.INIT_RESOURCES \
@@ -273,11 +272,6 @@ class Environment(CoupledDEVS):
             self.connectPorts(o0, i1)
             self.connectPorts(o1, i0)
 
-        # The credits given by each agent in the last generation.
-        # Defaults to the max for the start of the simulation.
-        self.given_credits = {ag.state.id: 0 \
-                for ag in self.agents.values()}
-
     def modelTransition(self, state): 
         # Create the new generations, destroy the old one
         self.updatecount = self.updatecount + 1
@@ -299,6 +293,7 @@ class Environment(CoupledDEVS):
         for model_id in to_eliminate.keys():
             self.removeSubModel(self.agents[model_id])
             del self.agents[model_id]
+            del self.given_credits[model_id]
 
         # Duplicate models.
         new_agents = {}
@@ -309,14 +304,15 @@ class Environment(CoupledDEVS):
                 agent = self.agents[model_id].new_instance(new_id)
                 self.agents[new_id] = self.addSubModel(agent)
                 new_agents[new_id] = agent
+                self.given_credits[new_id] = 0
 
         self.total_credits = {}
-        self.given_credits = {}
+        # self.given_credits = {}
         # Update the resources for each agent
         for ag_id, ag in self.agents.items():
             ag.reset_state()
             self.total_credits[ag_id] = Parameters.INIT_RESOURCES
-            self.given_credits[ag_id] = 0
+            # self.given_credits[ag_id] = 0
 
         # Connect!!
         for ag_id, agent in new_agents.items(): 
@@ -335,7 +331,10 @@ class Environment(CoupledDEVS):
 
         for elem in x_b_micro:
             for cred_type, (agent_id, credits) in elem.items():
-                self.__dict__[cred_type][agent_id] = credits
+                if cred_type == 'given_credits':
+                    self.given_credits[agent_id] = self.given_credits[agent_id] + credits
+                else:
+                    self.__dict__[cred_type][agent_id] = credits
 
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
