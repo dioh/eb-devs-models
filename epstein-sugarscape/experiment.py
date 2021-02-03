@@ -76,7 +76,7 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 500
+DURATION = 100
 RETRIES = 10
 
 def run_single(retry=0):
@@ -98,28 +98,39 @@ def run_multiple_retries():
 
         stats.append( logA.stats )
 
-    fig, ax = plt.subplots()
     params = "POPULATION_SIZE: %d\n" % model.Parameters.POPULATION_SIZE
     params+= "GRID_SIZE: (%d,%d)\n" % model.Parameters.GRID_SIZE
     params+= "INITIAL_WEALTH: U(%.1f,%.1f)\n" % model.Parameters.INITIAL_WEALTH
     params+= "METABOLIC_RATE: U(%.1f,%.1f)\n" % model.Parameters.METABOLIC_RATE
     params+= "VISION: U(%.1f,%.1f)\n" % model.Parameters.VISION
-    params+= "MAX_AGE: U(%.1f,%.1f)" % model.Parameters.MAX_AGE
-    for s in stats:
-        x, y = zip(* s)
-        plt.plot( x,y )
-    plt.text(0.55, 0.85, params, horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
-    plt.xlabel("Time")
-    plt.ylabel("Gini coefficient")
-    plt.ylim((0,1))
-    outfile = "results/epstein-%d" % model.Parameters.POPULATION_SIZE
-    outfile+= "-%d_%d" % model.Parameters.GRID_SIZE
-    outfile+= "-%d_%d" % model.Parameters.INITIAL_WEALTH
-    outfile+= "-%d_%d" % model.Parameters.METABOLIC_RATE
-    outfile+= "-%d_%d" % model.Parameters.VISION
-    outfile+= "-%d_%d" % model.Parameters.MAX_AGE
-    plt.savefig(outfile)
-    plt.show()
 
-run_multiple_retries()
+    avgs = [ np.average([ stats[j][i][1] for j in range(len(stats)) if i<len(stats[j]) ]) for i in range(len(stats[0])) ]
+    stds = [ np.std([ stats[j][i][1] for j in range(len(stats)) if i<len(stats[j]) ]) for i in range(len(stats[0])) ]
+
+    x, y = zip(* stats[0])
+    plt.errorbar( x, avgs, yerr=stds, label="U(%.2f,%.2f)" % model.Parameters.METABOLIC_RATE )
+
+    return params
+
+fig, ax = plt.subplots()
+
+for ht in [1,2,3,4,5,6]:
+	model.Parameters.METABOLIC_RATE = (ht,ht+1)
+	params = run_multiple_retries()
+
+plt.legend(loc="upper right", fontsize=12, ncol=2)
+plt.xlabel("Time", fontsize=35)
+plt.ylabel("Population",fontsize=35)
+plt.xlim((0,100))
+plt.ylim((0,80))
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.tight_layout()
+outfile = "results/epstein-%d" % model.Parameters.POPULATION_SIZE
+outfile+= "-%d_%d" % model.Parameters.GRID_SIZE
+outfile+= "-%d_%d" % model.Parameters.INITIAL_WEALTH
+outfile+= "-%d_%d" % model.Parameters.METABOLIC_RATE
+outfile+= "-%d_%d" % model.Parameters.VISION
+plt.savefig(outfile)
+plt.show()
 
