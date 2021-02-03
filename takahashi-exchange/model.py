@@ -38,7 +38,7 @@ def threshold(t, theta, a, b):
 
 class Parameters:
     TOPOLOGY_FILE = ""
-    INIT_RESOURCES = 10
+    INIT_RESOURCES = 20
     MAX_AG = 20
     RV = 2
     TRIALS = 10
@@ -292,12 +292,8 @@ class Environment(CoupledDEVS):
                 self.total_credits.items()))
 
         to_eliminate = dict(filter(lambda elem: \
-                elem[1] <= g_mean - 1 * (g_sd),
+                elem[1] < g_mean - 1 * (g_sd),
                 self.total_credits.items()))
-
-        print ("ITEMS",self.total_credits.items())
-        print (to_duplicate)
-        print (to_eliminate)
 
         # Remove the ones to eliminate
         for model_id in to_eliminate.keys():
@@ -310,7 +306,6 @@ class Environment(CoupledDEVS):
             if len(self.agents) < Parameters.MAX_AG:
                 self.last_agent_id += 1
                 new_id = self.last_agent_id
-                print(new_id ,model_id)
                 agent = self.agents[model_id].new_instance(new_id)
                 self.agents[new_id] = self.addSubModel(agent)
                 new_agents[new_id] = agent

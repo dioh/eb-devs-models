@@ -76,7 +76,7 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 1000
+DURATION = 100
 RETRIES = 10
 
 
