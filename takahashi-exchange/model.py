@@ -57,6 +57,7 @@ ActionState = enum(P='PROPAGATING', N="NORMAL")
 ENVProps = enum(DECAY='decay_rate',
         NAGENTS='Nagents',
         GIVERS_GREATER_THAN='Givers',
+        SORTED_BY_GIVER='If no Givers greater than, then second best',
         GIVERS_MEAN='Givers Mean values',
         GIVERS_SD='Givers SD values',
         TOTAL_CRED_MEAN='Total credits mean',
@@ -160,13 +161,17 @@ class Agent(AtomicDEVS):
                 bigger_than = self.state.tg * self.state.gg,\
                         avoid_self = self.state.id))
 
+        neighbor_to_give = None
         if suitable_neighbors:
             neighbor_to_give = np.random.choice(suitable_neighbors)
-            outport = self.out_ports_dict.get(neighbor_to_give)
-            return outport
         else:
-            # TODO: Choose randomly from the others
-            raise Exception("Implementar aca la segunda condicion de Takahashi")
+            sorted_neighbors = list(self.parent.getContextInformation(
+                ENVProps.SORTED_BY_GIVER,
+                        avoid_self = self.state.id))
+            if sorted_neighbors:
+                neighbor_to_give = sorted_neighbors[0]
+        outport = self.out_ports_dict.get(neighbor_to_give)
+        return outport
 
     def extTransition(self, inputs): 
         credits = list(inputs.values())[0]
@@ -272,6 +277,12 @@ class Environment(CoupledDEVS):
             self.connectPorts(o0, i1)
             self.connectPorts(o1, i0)
 
+        # The credits given by each agent in the last generation.
+        # Defaults to the max for the start of the simulation.
+        self.given_credits = {ag.state.id: 0 \
+                        for ag in self.agents.values()}
+
+
     def modelTransition(self, state): 
         # Create the new generations, destroy the old one
         self.updatecount = self.updatecount + 1
@@ -293,7 +304,7 @@ class Environment(CoupledDEVS):
         for model_id in to_eliminate.keys():
             self.removeSubModel(self.agents[model_id])
             del self.agents[model_id]
-            del self.given_credits[model_id]
+            # del self.given_credits[model_id]
 
         # Duplicate models.
         new_agents = {}
@@ -307,12 +318,12 @@ class Environment(CoupledDEVS):
                 self.given_credits[new_id] = 0
 
         self.total_credits = {}
-        # self.given_credits = {}
+        self.given_credits = {}
         # Update the resources for each agent
         for ag_id, ag in self.agents.items():
             ag.reset_state()
             self.total_credits[ag_id] = Parameters.INIT_RESOURCES
-            # self.given_credits[ag_id] = 0
+            self.given_credits[ag_id] = 0
 
         # Connect!!
         for ag_id, agent in new_agents.items(): 
@@ -332,7 +343,8 @@ class Environment(CoupledDEVS):
         for elem in x_b_micro:
             for cred_type, (agent_id, credits) in elem.items():
                 if cred_type == 'given_credits':
-                    self.given_credits[agent_id] = self.given_credits[agent_id] + credits
+                    self.given_credits[agent_id] = credits
+                    # self.given_credits[agent_id] = self.given_credits[agent_id] + credits
                 else:
                     self.__dict__[cred_type][agent_id] = credits
 
@@ -345,10 +357,16 @@ class Environment(CoupledDEVS):
             givers = dict(filter(lambda elem: \
                 elem[1] >= bigger_than and elem[0] != avoid_self,
                 self.given_credits.items()))
+
             return givers.keys()
 
+        if property == ENVProps.SORTED_BY_GIVER:
+            avoid_self = kwargs['avoid_self']
+            return [el[0] for el in sorted(self.given_credits.items(),
+                key= lambda x: x[1], reverse=True) if el[0] != avoid_self]
+
         if property == ENVProps.GIVERS_MEAN:
-            return np.array(list(self.given_credits.values())).mean()
+            return np.array(list(self.given_credits.values())).mean() 
 
         if property == ENVProps.GIVERS_SD:
             return np.array(list(self.given_credits.values())).std()
