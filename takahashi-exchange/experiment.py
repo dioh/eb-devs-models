@@ -76,7 +76,7 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 100
+DURATION = 1000
 RETRIES = 10
 
 
@@ -137,7 +137,7 @@ def run_multiple_retries():
     for file in filenames: os.remove(file)
 
     data = pd.read_csv(outfilename, header=0, names=['t', 'givers_mean', 'retry'])
-    filtered_data = data[(data.t > 0)]
+    filtered_data = data[(data.t % 10 == 0)]
     plt.figure(figsize=(12,8))
 
     ax = sns.pointplot( x="t", y="givers_mean", data=filtered_data)#, ci="sd", capsize=.2, dodge=True)
