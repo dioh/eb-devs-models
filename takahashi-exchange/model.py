@@ -26,7 +26,6 @@ from pypdevs.infinity import INFINITY
 from pypdevs.DEVS import *
 import copy
 
-np.random.seed(0)
 def reverse_exponential(x):
     return np.random.exponential(1/float(x))
 
@@ -38,11 +37,11 @@ def threshold(t, theta, a, b):
 
 class Parameters:
     TOPOLOGY_FILE = ""
-    INIT_RESOURCES = 20
+    INIT_RESOURCES = 10
     MAX_AG = 20
     RV = 2
     TRIALS = 10
-    EMERGENT_MODEL = False
+    MUTATION_RATE = 0.05
 
 DEBUG = True
 
@@ -59,6 +58,7 @@ ENVProps = enum(DECAY='decay_rate',
         GIVERS_GREATER_THAN='Givers',
         SORTED_BY_GIVER='If no Givers greater than, then second best',
         GIVERS_MEAN='Givers Mean values',
+        TOL_MEAN='Tolerance mean values',
         GIVERS_SD='Givers SD values',
         TOTAL_CRED_MEAN='Total credits mean',
         TOTAL_CRED_SD='Total credits sd')
@@ -73,7 +73,7 @@ class AgentState(object):
 
         self.giving = False
 
-        self.credits = 0 #Parameters.INIT_RESOURCES
+        self.credits = 0 
         TG_MAX = Parameters.INIT_RESOURCES
         self.gg = np.random.randint(0, TG_MAX + 1) 
         self.tg = np.random.uniform(low=0.1, high=2)
@@ -108,8 +108,9 @@ class LogAgent(AtomicDEVS):
 
     def saveLoginfo(self): 
         givers_mean = self.parent.getContextInformation(ENVProps.GIVERS_MEAN)
+        tolerance_mean = self.parent.getContextInformation(ENVProps.TOL_MEAN)
         Nagents = self.parent.getContextInformation(ENVProps.NAGENTS)
-        stats = (self.current_time, givers_mean)
+        stats = (self.current_time, givers_mean, tolerance_mean)
         self.stats.append(stats) 
 
     def intTransition(self):
@@ -141,7 +142,10 @@ class Agent(AtomicDEVS):
 
     def reset_state(self):
         self.state.credits = Parameters.INIT_RESOURCES
-        # TODO: Include mutation.
+        # if np.random.random() < Parameters.MUTATION_RATE:
+        #     TG_MAX = Parameters.INIT_RESOURCES
+        #     self.gg = np.random.randint(0, TG_MAX + 1) 
+        #     self.tg = np.random.uniform(low=0.1, high=2)
 
     def add_connections(self, ag_id): 
         inport = outport = None
@@ -243,8 +247,8 @@ class Environment(CoupledDEVS):
         self.addSubModel(self.log_agent)
         self.log_agent.saveLoginfo()
 
-        self.given_credits = {v.state.id: 0 #Parameters.INIT_RESOURCES \
-                for k, v in self.agents.items() if k != -1}
+
+
         self.received_credits = {}
         self.total_credits = {v.state.id: Parameters.INIT_RESOURCES \
                 for k, v in self.agents.items() if k != -1}
@@ -281,6 +285,8 @@ class Environment(CoupledDEVS):
         # Defaults to the max for the start of the simulation.
         self.given_credits = {ag.state.id: 0 \
                         for ag in self.agents.values()}
+        self.tolerance = {v.state.id: v.state.tg #Parameters.INIT_RESOURCES \
+                for k, v in self.agents.items() if k != -1}
 
 
     def modelTransition(self, state): 
@@ -304,7 +310,7 @@ class Environment(CoupledDEVS):
         for model_id in to_eliminate.keys():
             self.removeSubModel(self.agents[model_id])
             del self.agents[model_id]
-            # del self.given_credits[model_id]
+            del self.given_credits[model_id]
 
         # Duplicate models.
         new_agents = {}
@@ -318,12 +324,14 @@ class Environment(CoupledDEVS):
                 self.given_credits[new_id] = 0
 
         self.total_credits = {}
-        self.given_credits = {}
-        # Update the resources for each agent
+        # self.given_credits = {}
         for ag_id, ag in self.agents.items():
             ag.reset_state()
             self.total_credits[ag_id] = Parameters.INIT_RESOURCES
-            self.given_credits[ag_id] = 0
+            # self.given_credits[ag_id] = 0
+
+        self.tolerance = {v.state.id: v.state.tg #Parameters.INIT_RESOURCES \
+                for k, v in self.agents.items() if k != -1}
 
         # Connect!!
         for ag_id, agent in new_agents.items(): 
@@ -344,7 +352,6 @@ class Environment(CoupledDEVS):
             for cred_type, (agent_id, credits) in elem.items():
                 if cred_type == 'given_credits':
                     self.given_credits[agent_id] = credits
-                    # self.given_credits[agent_id] = self.given_credits[agent_id] + credits
                 else:
                     self.__dict__[cred_type][agent_id] = credits
 
@@ -367,6 +374,9 @@ class Environment(CoupledDEVS):
 
         if property == ENVProps.GIVERS_MEAN:
             return np.array(list(self.given_credits.values())).mean() 
+
+        if property == ENVProps.TOL_MEAN:
+            return np.array(list(self.tolerance.values())).mean()
 
         if property == ENVProps.GIVERS_SD:
             return np.array(list(self.given_credits.values())).std()
