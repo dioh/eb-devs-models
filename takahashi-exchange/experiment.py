@@ -76,11 +76,13 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 1000
-RETRIES = 10
+DURATION = 100
+RETRIES = 20
 
+dfs = []
 
 def run_single(retry=0):
+    global dfs
     environ = Environment(name='Env')
     sim = Simulator(environ)
 
@@ -96,17 +98,7 @@ def run_single(retry=0):
 
     dataframe = pd.DataFrame(environ.log_agent.stats)
     dataframe['retry'] = retry
-    tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/takahashi_model', delete=False)
-    dataframe.to_csv(tmpfile, header=False, index=False)
-
-    # topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-
-    # outfilename = "results/sir_model_%s_emergence_%s_graph.gml" % (topology_name, Parameters.EMERGENT_MODEL)
-    # nx.write_gml(environ.G, outfilename)
-
-    # states = [(ag.state.id, ag.state.infected, ag.state.infected_time, ag.state.infected_end_time) for ag in environ.agents[:-1] if ag.state.infected_time > -1]
-    # outfilenamestates = "results/sir_model_%s_emergence_%s_rt.csv" % (topology_name, Parameters.EMERGENT_MODEL)
-    # pd.DataFrame(states).to_csv(outfilenamestates)
+    dfs.append(dataframe)
 
 
 def run_multiple_retries():
@@ -115,32 +107,18 @@ def run_multiple_retries():
     for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)
 
-    filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'takahashi_model*')]
-    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    outfilename = "results/takahashi%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
-    fin = fileinput.input(filenames)
+    outfilename = "results/takahashi_retries_%d.csv" % (  RETRIES)
+    output_columns = ['Time', 'Given Mean', 'Tolerance Mean', 'retry']
+    __import__('ipdb').set_trace()
 
-    if not os.path.exists("results"):
-        os.mkdir("results")
-
-    output_columns = ['t', 'given_mean',  'retry']
-    with open(outfilename, 'w') as fout:
-        fout.write(",".join(output_columns))
-        fout.write('\n')
-
-
-    with open(outfilename, 'ab') as fout:
-        for filename in filenames:
-            with open(filename, 'rb') as readfile:
-                shutil.copyfileobj(readfile, fout)
-
-    for file in filenames: os.remove(file)
-
-    data = pd.read_csv(outfilename, header=0, names=['t', 'givers_mean', 'retry'])
-    filtered_data = data[(data.t % 10 == 0)]
+    data = pd.concat(dfs,ignore_index=True)
+    data.columns = output_columns
+    data.to_csv(outfilename)
+    filtered_data = data.loc[(data['Time'] > 0) & data['Time'] % 10 == 0]
     plt.figure(figsize=(12,8))
 
-    ax = sns.pointplot( x="t", y="givers_mean", data=filtered_data)#, ci="sd", capsize=.2, dodge=True)
+    ax = sns.pointplot( x="Time", y="Given Mean", data=filtered_data, ci="sd", capsize=.2, dodge=True)
+    # sns.pointplot( x="Time", y="Tolerance Mean", data=filtered_data)#, ci="sd", capsize=.2, dodge=True)
     for ind, label in enumerate(ax.get_xticklabels()):
         if ind % 10 == 0:  # every 10th label is kept
             label.set_visible(True)
