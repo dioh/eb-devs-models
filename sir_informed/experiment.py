@@ -72,10 +72,10 @@ from model import Environment, Parameters
 
 import model
 import networkx as nx
-from SIRSS_numeric import sir_num
+# from SIRSS_numeric import sir_num
 
-DURATION = 100
-RETRIES = 1
+DURATION = 10
+RETRIES = 10
 output_columns = ['t','I','S','R','E', 'retry']
 
 def run_single(retry=0):
@@ -132,16 +132,16 @@ def run_multiple_retries():
     fig_filename = outfilename.replace('csv', 'png')
 
     # sir_num(T,dt,EK,ga,b,lamb,pob):
-    Sn,In,Rn=sir_num(5000*0.09,0.09,0,1,3,8,10000)
+    # Sn,In,Rn=sir_num(5000*0.09,0.09,0,1,3,8,10000)
     
     fig=plt.figure()
     plt.plot(S,label='S')
     plt.plot(I,label='I')
     plt.plot(R,label='R')
    
-    plt.plot(199*Sn,label='Snumeric')
-    plt.plot(199*In,label='Inumeric')
-    plt.plot(199*Rn,label='Rnumeric')
+    # plt.plot(199*Sn,label='Snumeric')
+    # plt.plot(199*In,label='Inumeric')
+    # plt.plot(199*Rn,label='Rnumeric')
     plt.legend()
     plt.show()
 run_multiple_retries()
