@@ -39,7 +39,7 @@ class Parameters:
     TOPOLOGY_FILE = ""
     INIT_RESOURCES = 10
     MAX_AG = 20
-    RV = 2
+    RV = 4
     TRIALS = 10
     MUTATION_RATE = 0.05
 
@@ -142,10 +142,10 @@ class Agent(AtomicDEVS):
 
     def reset_state(self):
         self.state.credits = Parameters.INIT_RESOURCES
-        # if np.random.random() < Parameters.MUTATION_RATE:
-        #     TG_MAX = Parameters.INIT_RESOURCES
-        #     self.gg = np.random.randint(0, TG_MAX + 1) 
-        #     self.tg = np.random.uniform(low=0.1, high=2)
+        if np.random.random() < Parameters.MUTATION_RATE:
+            TG_MAX = Parameters.INIT_RESOURCES
+            self.gg = np.random.randint(0, TG_MAX + 1) 
+            self.tg = np.random.uniform(low=0.1, high=2)
 
     def add_connections(self, ag_id): 
         inport = outport = None
@@ -283,6 +283,8 @@ class Environment(CoupledDEVS):
 
         # The credits given by each agent in the last generation.
         # Defaults to the max for the start of the simulation.
+        self.given_updates = {ag.state.id: 0 \
+                        for ag in self.agents.values()}
         self.given_credits = {ag.state.id: 0 \
                         for ag in self.agents.values()}
         self.tolerance = {v.state.id: v.state.tg #Parameters.INIT_RESOURCES \
@@ -310,7 +312,7 @@ class Environment(CoupledDEVS):
         for model_id in to_eliminate.keys():
             self.removeSubModel(self.agents[model_id])
             del self.agents[model_id]
-            del self.given_credits[model_id]
+            # del self.given_credits[model_id]
 
         # Duplicate models.
         new_agents = {}
@@ -321,10 +323,11 @@ class Environment(CoupledDEVS):
                 agent = self.agents[model_id].new_instance(new_id)
                 self.agents[new_id] = self.addSubModel(agent)
                 new_agents[new_id] = agent
-                self.given_credits[new_id] = 0
+                # self.given_credits[new_id] = 0
 
         self.total_credits = {}
-        # self.given_credits = {}
+        self.given_credits = {}
+        self.given_updates = {}
         for ag_id, ag in self.agents.items():
             ag.reset_state()
             self.total_credits[ag_id] = Parameters.INIT_RESOURCES
@@ -333,6 +336,11 @@ class Environment(CoupledDEVS):
         self.tolerance = {v.state.id: v.state.tg #Parameters.INIT_RESOURCES \
                 for k, v in self.agents.items() if k != -1}
 
+        self.given_updates = {ag.state.id: 0 \
+                        for ag in self.agents.values()}
+
+        self.given_credits = {ag.state.id: 0 \
+                        for ag in self.agents.values()}
         # Connect!!
         for ag_id, agent in new_agents.items(): 
             for oth_ag_id, other_agent in self.agents.items():
@@ -351,7 +359,8 @@ class Environment(CoupledDEVS):
         for elem in x_b_micro:
             for cred_type, (agent_id, credits) in elem.items():
                 if cred_type == 'given_credits':
-                    self.given_credits[agent_id] = credits
+                    self.given_credits[agent_id] = self.given_credits.get(agent_id, 0) + credits
+                    self.given_updates[agent_id] = self.given_updates.get(agent_id, 0) + 1
                 else:
                     self.__dict__[cred_type][agent_id] = credits
 
@@ -373,7 +382,11 @@ class Environment(CoupledDEVS):
                 key= lambda x: x[1], reverse=True) if el[0] != avoid_self]
 
         if property == ENVProps.GIVERS_MEAN:
-            return np.array(list(self.given_credits.values())).mean() 
+            given = np.array(list(self.given_credits.values()))
+            updates = np.array(list(self.given_updates.values()))
+            if sum(updates) == 0:
+                return 0
+            return np.array(given/updates).mean() 
 
         if property == ENVProps.TOL_MEAN:
             return np.array(list(self.tolerance.values())).mean()

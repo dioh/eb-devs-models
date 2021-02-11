@@ -76,8 +76,8 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 100
-RETRIES = 20
+DURATION = 1000
+RETRIES = 1
 
 dfs = []
 
@@ -109,15 +109,16 @@ def run_multiple_retries():
 
     outfilename = "results/takahashi_retries_%d.csv" % (  RETRIES)
     output_columns = ['Time', 'Given Mean', 'Tolerance Mean', 'retry']
-    __import__('ipdb').set_trace()
 
     data = pd.concat(dfs,ignore_index=True)
     data.columns = output_columns
     data.to_csv(outfilename)
-    filtered_data = data.loc[(data['Time'] > 0) & data['Time'] % 10 == 0]
+    filtered_data = data.loc[ data['Time'] % 10 == 1]
     plt.figure(figsize=(12,8))
 
-    ax = sns.pointplot( x="Time", y="Given Mean", data=filtered_data, ci="sd", capsize=.2, dodge=True)
+    filtered_data = pd.melt(filtered_data, id_vars=['Time', 'retry'], value_vars=['Given Mean', 'Tolerance Mean'])
+
+    ax = sns.pointplot( x="Time", y="value", hue='variable', data=filtered_data) #, ci="sd", capsize=.2, dodge=True)
     # sns.pointplot( x="Time", y="Tolerance Mean", data=filtered_data)#, ci="sd", capsize=.2, dodge=True)
     for ind, label in enumerate(ax.get_xticklabels()):
         if ind % 10 == 0:  # every 10th label is kept
