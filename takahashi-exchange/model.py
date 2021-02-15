@@ -21,6 +21,7 @@ import scipy.special as special
 from sklearn.neighbors import NearestNeighbors
 import networkx as nx
 from pypdevs.infinity import INFINITY
+import math
 
 # Import code for DEVS model representation:
 from pypdevs.DEVS import *
@@ -39,7 +40,7 @@ class Parameters:
     TOPOLOGY_FILE = ""
     INIT_RESOURCES = 10
     MAX_AG = 20
-    RV = 4
+    RV = 2
     TRIALS = 10
     MUTATION_RATE = 0.05
 
@@ -58,6 +59,7 @@ ENVProps = enum(DECAY='decay_rate',
         GIVERS_GREATER_THAN='Givers',
         SORTED_BY_GIVER='If no Givers greater than, then second best',
         GIVERS_MEAN='Givers Mean values',
+        GIVERS_GENE_MEAN='Givers Mean values',
         TOL_MEAN='Tolerance mean values',
         GIVERS_SD='Givers SD values',
         TOTAL_CRED_MEAN='Total credits mean',
@@ -98,7 +100,7 @@ class LogAgent(AtomicDEVS):
         self.stats = []
         self.name='logAgent'
         self.ta = 1
-        self.state = "LogAgent"
+        self.state = "_LogAgent"
         self.current_time = 0 
         self.elapsed = 0 
         self.my_input = {}
@@ -108,9 +110,10 @@ class LogAgent(AtomicDEVS):
 
     def saveLoginfo(self): 
         givers_mean = self.parent.getContextInformation(ENVProps.GIVERS_MEAN)
+        givers_gene_mean = self.parent.getContextInformation(ENVProps.GIVERS_GENE_MEAN)
         tolerance_mean = self.parent.getContextInformation(ENVProps.TOL_MEAN)
         Nagents = self.parent.getContextInformation(ENVProps.NAGENTS)
-        stats = (self.current_time, givers_mean, tolerance_mean)
+        stats = (self.current_time, givers_gene_mean, tolerance_mean)
         self.stats.append(stats) 
 
     def intTransition(self):
@@ -173,7 +176,7 @@ class Agent(AtomicDEVS):
                 ENVProps.SORTED_BY_GIVER,
                         avoid_self = self.state.id))
             if sorted_neighbors:
-                neighbor_to_give = sorted_neighbors[0]
+                neighbor_to_give = np.random.choice(sorted_neighbors)
         outport = self.out_ports_dict.get(neighbor_to_give)
         return outport
 
@@ -290,6 +293,9 @@ class Environment(CoupledDEVS):
         self.tolerance = {v.state.id: v.state.tg #Parameters.INIT_RESOURCES \
                 for k, v in self.agents.items() if k != -1}
 
+        self.giving_gene = {v.state.id: v.state.gg #Parameters.INIT_RESOURCES \
+                for k, v in self.agents.items() if k != -1}
+
 
     def modelTransition(self, state): 
         # Create the new generations, destroy the old one
@@ -304,12 +310,25 @@ class Environment(CoupledDEVS):
                 elem[1] >= g_mean + 1 * (g_sd),
                 self.total_credits.items()))
 
-        to_eliminate = dict(filter(lambda elem: \
-                elem[1] < g_mean - 1 * (g_sd),
-                self.total_credits.items()))
+        # to_eliminate = dict(filter(lambda elem: \
+        #         elem[1] <= (g_mean - 1 * (g_sd) + 1),
+        #         self.total_credits.items()))
+
+        if not to_duplicate:
+            __import__('ipdb').set_trace()
+
+
+
+        all_agents = [el[0] for el in sorted(self.total_credits.items(),
+            key= lambda x: x[1], reverse=True)] 
+
+        # to_duplicate = all_agents[0: max(1, len(all_agents) / 4)]
+        to_eliminate = all_agents[-len(to_duplicate):]
+        if not to_eliminate:
+            __import__('ipdb').set_trace()
 
         # Remove the ones to eliminate
-        for model_id in to_eliminate.keys():
+        for model_id in to_eliminate:
             self.removeSubModel(self.agents[model_id])
             del self.agents[model_id]
             # del self.given_credits[model_id]
@@ -334,6 +353,9 @@ class Environment(CoupledDEVS):
             # self.given_credits[ag_id] = 0
 
         self.tolerance = {v.state.id: v.state.tg #Parameters.INIT_RESOURCES \
+                for k, v in self.agents.items() if k != -1}
+
+        self.giving_gene = {v.state.id: v.state.gg #Parameters.INIT_RESOURCES \
                 for k, v in self.agents.items() if k != -1}
 
         self.given_updates = {ag.state.id: 0 \
@@ -378,8 +400,11 @@ class Environment(CoupledDEVS):
 
         if property == ENVProps.SORTED_BY_GIVER:
             avoid_self = kwargs['avoid_self']
-            return [el[0] for el in sorted(self.given_credits.items(),
-                key= lambda x: x[1], reverse=True) if el[0] != avoid_self]
+            max_given = max(self.given_credits.values())
+            return [k for k, v in self.given_credits.items() if v == max_given]
+
+            # return [el[0] for el in sorted(self.given_credits.items(),
+            #     key= lambda x: x[1], reverse=True) if el[0] != avoid_self]
 
         if property == ENVProps.GIVERS_MEAN:
             given = np.array(list(self.given_credits.values()))
@@ -390,6 +415,9 @@ class Environment(CoupledDEVS):
 
         if property == ENVProps.TOL_MEAN:
             return np.array(list(self.tolerance.values())).mean()
+
+        if property == ENVProps.GIVERS_GENE_MEAN:
+            return np.array(list(self.giving_gene.values())).mean()
 
         if property == ENVProps.GIVERS_SD:
             return np.array(list(self.given_credits.values())).std()
