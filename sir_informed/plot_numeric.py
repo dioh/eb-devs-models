@@ -15,7 +15,7 @@ data_melteada = pd.melt(data, id_vars=['t', 'retry'], value_vars=['S', 'I', 'R']
 #__import__('ipdb').set_trace()
 
 
-Sn,In,Rn=sir_num(4000*0.001,0.001,4,3,1,5,10000)
+Sn,In,Rn=sir_num(4000*0.001,0.001,0,3,3,8,300)
 #SIRn=sir_num(60*0.05,0.05,40*0.3,1,3,8,10000)
 #sir_num(T,dt,EK,ga,b,lamb,pob):
 
@@ -30,7 +30,7 @@ fig,ax=plt.subplots()
 colors=["#FF0B04","#4374B3","#228800"]
 sns.set_palette(sns.color_palette(colors))
 sns.lineplot(data=data_melteada, x='t', y='value', hue='variable',ax=ax,color=['r','g','b'])
-ax.set_xticklabels(range(-1,7,1))
+ax.set_xticklabels(range(-1,4,1))
 # plt.plot(S,label='S')
 # plt.plot(I,label='I')
 # plt.plot(R,label='R')

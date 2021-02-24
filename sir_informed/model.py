@@ -33,8 +33,8 @@ class Parameters:
     TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
     EMERGENT_MODEL = False
     INITIAL_PROB = 0
-    BETA_PROB = 2
-    RHO_PROB = 5 #Gamma
+    BETA_PROB = 3
+    RHO_PROB = 3 #Gamma
     TW_SIZE = 5
     TW_TRHD = 50
     TW_BIN_SIZE = 15
@@ -403,7 +403,7 @@ class Environment(CoupledDEVS):
         pk = xk / float(sum(xk))
         #esto es para el evento SS
         p=0.4
-        K=10
+        K=0
 
         deg=max(0,newly_inf_deg+K*np.random.binomial(1,p))
         

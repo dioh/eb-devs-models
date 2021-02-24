@@ -36,10 +36,15 @@ def ecs(x,t,EK,beta,gamma,M):
         pI=NIS/NS
         pR=NRS/NS
     else:
+        print(I,Th)
         pS=0
         pI=NIS/(NIS+NRS)
         pR=NRS/(NIS+NRS)
-
+    
+    if g(Th) < 1e-40:
+        __import__('ipdb').set_trace()
+        Th=0
+    
     if x.all()>-1e-20:
       dTh=(-beta*pI)*Th
       #dNS=dTh*gprima(Th)+Th*dTh*gdosprima(Th)+beta*EK*pI*pS*NS #MM
@@ -92,19 +97,20 @@ def integra(T,dt,EK,beta,gamma,M):
     
     R2t=np.zeros(int(T/dt)-1)
     for i in range(len(tiempo_modelo)-1):
-      sir[:,i+1]=int_rk4(ecs,sir[:,i],dt,tiempo_modelo[i],EK,beta,gamma,M)
+      aux=int_rk4(ecs,sir[:,i],dt,tiempo_modelo[i],EK,beta,gamma,M)
+      sir[:,i+1]=[max(0,aux[i]) for i in range(len(aux))]
       R2t[i]=1
     return np.array([sir,R2t])
+
 
 lambd=8
 g = lambda x: np.exp(lambd*(x-1))
 gprima = lambda x: lambd*np.exp(lambd*(x-1));
 gdosprima = lambda x: lambd*lambd*np.exp(lambd*(x-1))
 gtresprima = lambda x: (lambd**3)*np.exp(lambd*(x-1))
-
-H = lambda x: x*gdosprima(x)/gprima(x)
-
 invg=inversefunc(g)
+
+
 
 #M=10000
 #EK=0.9*0+0.1*50
@@ -119,10 +125,18 @@ def sir_num(T,dt,EK,ga,b,lamb,pob):
     gamma=ga
     lambd=lamb
     M=pob
+    g = lambda x: np.exp(lambd*(x-1))
+    gprima = lambda x: lambd*np.exp(lambd*(x-1));
+    gdosprima = lambda x: lambd*lambd*np.exp(lambd*(x-1))
+    gtresprima = lambda x: (lambd**3)*np.exp(lambd*(x-1))
+    invg=inversefunc(g)
     sirss=integra(T,dt,EK,beta,gamma,M)
     th,NS,NIS,NRS,NS2,S,I,R,N=sirss[0]
-    
-    
+    plb.figure()
+    plb.plot(S)
+    plb.plot(I)
+    plb.plot(R)
+    plb.show()
     return np.array([S,I,R])
 
 
