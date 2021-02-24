@@ -74,7 +74,7 @@ import model
 import networkx as nx
 # from SIRSS_numeric import sir_num
 
-DURATION = 10
+DURATION = 4
 RETRIES = 10
 output_columns = ['t','I','S','R','E', 'retry']
 
@@ -105,7 +105,8 @@ def run_multiple_retries():
     # BETA_PROB,
     # RHO_PROB,
     # RECOV_THRHLD,
-    for i in progressbar.progressbar(range(RETRIES)):
+    #for i in progressbar.progressbar(range(RETRIES)):
+    for i in range(RETRIES):
         run_single(retry=i)
 
     filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'sir_model*')]
