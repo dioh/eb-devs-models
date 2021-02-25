@@ -42,7 +42,7 @@ class Parameters:
     K=0
 
     QUARANTINE_THRESHOLD = 0.05
-    QUARANTINE_ACCEPTATION = 0.07
+    QUARANTINE_ACCEPTATION = 0.03
 
 DEBUG = True
 
@@ -199,7 +199,7 @@ class Agent(AtomicDEVS):
                 # If an agent is being infected.
                 if self.state.state == SIRStates.S\
                         and not self.parent.getContextInformation(ENVProps.QUARANTINE_CONDITION)\
-                        and np.random.random() > Parameters.QUARANTINE_ACCEPTATION:
+                        and np.random.random() < Parameters.QUARANTINE_ACCEPTATION:
                     self.state.state = SIRStates.I
                     self.state.model_transition = True
                     self.state.share = True
