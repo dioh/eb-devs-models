@@ -34,10 +34,15 @@ class Parameters:
     EMERGENT_MODEL = False
     INITIAL_PROB = 0
     BETA_PROB = 3
-    RHO_PROB = 1
+    RHO_PROB = 3 #Gamma
     TW_SIZE = 5
     TW_TRHD = 50
     TW_BIN_SIZE = 15
+    p=0.4
+    K=0
+
+    QUARANTINE_THRESHOLD = 0.05
+    QUARANTINE_ACCEPTATION = 0.03
 
 DEBUG = True
 
@@ -49,7 +54,7 @@ def enum(**kwargs):
     return obj
 
 SIRStates = enum(S='Susceptible', I='Infected',  R='Recovered')
-ENVProps = enum(DECAY='decay_rate', AGENT_STATES='log data')
+ENVProps = enum(DECAY='decay_rate', AGENT_STATES='log data', QUARANTINE_CONDITION='If above threshold, agents do quarantine.')
 
 class LogAgent(AtomicDEVS):
     def __init__(self):
@@ -77,7 +82,7 @@ class LogAgent(AtomicDEVS):
         return self.ta
 
     def set_values(self):
-        self.ta = 0.001
+        self.ta = 0.05
 
 class AgentState(object):
     def __init__(self, model, name, id, state):
@@ -192,7 +197,9 @@ class Agent(AtomicDEVS):
         for k, v in inputs.items(): 
             if v == 'infect':
                 # If an agent is being infected.
-                if self.state.state == SIRStates.S:
+                if self.state.state == SIRStates.S\
+                        and not self.parent.getContextInformation(ENVProps.QUARANTINE_CONDITION)\
+                        and np.random.random() < Parameters.QUARANTINE_ACCEPTATION:
                     self.state.state = SIRStates.I
                     self.state.model_transition = True
                     self.state.share = True
@@ -377,6 +384,16 @@ class Environment(CoupledDEVS):
         if(property == ENVProps.AGENT_STATES):
             return self.agent_states
 
+        if(property == ENVProps.QUARANTINE_CONDITION):
+            (unique, counts) = np.unique(np.array([it[0] for it in self.agent_states.values()]), return_counts=True) 
+            unique_counts_dict = dict(zip(unique, counts))
+            infected_number = unique_counts_dict['Infected']
+
+            infected_percentage = infected_number / float(len(self.agents))
+            return Parameters.QUARANTINE_THRESHOLD < infected_percentage
+            
+            
+
     def select(self, immChildren):
         """
         Choose a model to transition from all possible models.
@@ -402,10 +419,8 @@ class Environment(CoupledDEVS):
         
         pk = xk / float(sum(xk))
         #esto es para el evento SS
-        p=0
-        K=0
 
-        deg=max(0,newly_inf_deg+K*np.random.binomial(1,p))
+        deg=max(0,newly_inf_deg+Parameters.K*np.random.binomial(1,Parameters.p))
         
         if deg > sum(pk>0):
             return False

@@ -72,11 +72,12 @@ from model import Environment, Parameters
 
 import model
 import networkx as nx
-from SIRSS_numeric import sir_num
+import seaborn as sns
+# from SIRSS_numeric import sir_num
 
-DURATION = 100
-RETRIES = 1
-output_columns = ['t','I','S','R','E', 'retry']
+DURATION = 4
+RETRIES = 10
+output_columns = ['t','I','S','R','retry']
 
 def run_single(retry=0):
     environ = Environment(name="SIR over CM")
@@ -98,14 +99,18 @@ def run_single(retry=0):
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
+    Parameters.QUARANTINE_ACCEPTATION = 1
+    Parameters.QUARANTINE_THRESHOLD = 1
+    # Parameters.RHO_PROB = 3
+    # Parameters.BETA_PROB = 0.5
+
     # TOPOLOGY_FILE,
     # N,
     # INITIAL_PROB,
     # INFECT_PROB,
-    # BETA_PROB,
-    # RHO_PROB,
     # RECOV_THRHLD,
-    for i in progressbar.progressbar(range(RETRIES)):
+    #for i in progressbar.progressbar(range(RETRIES)):
+    for i in range(RETRIES):
         run_single(retry=i)
 
     filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'sir_model*')]
@@ -131,19 +136,18 @@ def run_multiple_retries():
     
     fig_filename = outfilename.replace('csv', 'png')
 
-    # sir_num(T,dt,EK,ga,b,lamb,pob):
-    Sn,In,Rn=sir_num(5000*0.09,0.09,0,1,3,8,10000)
-    
-    fig=plt.figure()
-    plt.plot(S,label='S')
-    plt.plot(I,label='I')
-    plt.plot(R,label='R')
-   
-    plt.plot(199*Sn,label='Snumeric')
-    plt.plot(199*In,label='Inumeric')
-    plt.plot(199*Rn,label='Rnumeric')
-    plt.legend()
-    plt.show()
+    aux = data.groupby('retry').max().reset_index()
+    aux = aux[(aux.R > 10)]
+    data = data[data.retry.isin(aux.retry)]
+    data_melteada = pd.melt(data, id_vars=['t', 'retry'], value_vars=['S', 'I', 'R'])
+
+    fig,ax=plt.subplots()
+    colors=["#FF0B04","#4374B3","#228800"]
+    sns.set_palette(sns.color_palette(colors))
+    sns.lineplot(data=data_melteada, x='t', y='value', hue='variable',ax=ax,color=['r','g','b'])
+    # ax.set_xticklabels(range(-1,4,1))
+    plt.savefig('agent_new_2.png')
+
 run_multiple_retries()
 
 #BETA_PROB = 10 RHO_PROB = 0.9

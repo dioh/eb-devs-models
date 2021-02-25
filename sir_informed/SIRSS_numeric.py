@@ -21,25 +21,53 @@ from scipy.interpolate import interp1d
 
 def ecs(x,t,EK,beta,gamma,M):
     Th=x[0] #g^-1 susceptibles
-    pI=x[1] 
-    pS=x[2] 
-    pR=x[3] #Infectadxs que no estan en cuarentena
-    I=x[4]  #Infectadxs Detectadxs
-    R=x[5] #Recuperadxs detectadxs
-    V=x[6] #Recuperadxs no detectadxs
-   
-    u=0
-    if pI.all()>0 and I.all()>0 and Th.all()>0 and pS.all()>0:
-      dTh=(-beta*pI-u)*Th
-      dpI=-beta*pI*(1-pI)-gamma*pI+pI*beta*pS*H(Th)
-      dpS=pI*beta*pS*(1-H(Th))+(-H(Th)+1)*pS*u
-      dpR=gamma*pI+beta*pR*pI
-      dI=beta*pI*Th*gprima(Th)-(gamma)*I
-      dR=gamma*I
-      dV=u*Th*gprima(Th)
-      return np.array([dTh,dpI,dpS,dpR,dI,dR,dV])
+    NS=x[1] 
+    NIS=x[2] 
+    NRS=x[3]
+    NS2=x[4]
+
+    S=x[5]
+    I=x[6]
+    R=x[7]
+    N=x[8]
+    
+    if NS>1e-20:
+        pS=(NS-NRS-NIS)/NS
+        pI=NIS/NS
+        pR=NRS/NS
     else:
-      return np.zeros(7)
+        print(I,Th)
+        pS=0
+        pI=NIS/(NIS+NRS)
+        pR=NRS/(NIS+NRS)
+    
+    if g(Th) < 1e-40:
+        __import__('ipdb').set_trace()
+        Th=0
+    
+    if x.all()>-1e-20:
+      dTh=(-beta*pI)*Th
+      #dNS=dTh*gprima(Th)+Th*dTh*gdosprima(Th)+beta*EK*pI*pS*NS #MM
+      dNS=dTh*gprima(Th)+Th*dTh*gdosprima(Th)
+      dNIS=-gamma*NIS+beta*pI*((pS-pI)*(NS2-NS+EK*NS)-NS) #Nueva
+      #dNIS=-gamma*NIS+beta*pI*((pS-pI)*NS2-(pS-pI+1)*NS)-beta*pI*(pS-pI)*EK*NS #NuevaOP2
+      dNRS=gamma*NIS-beta*pI*pR*((NS2-NS)+EK*NS) ##MM 
+
+      #dNS=dTh*gprima(Th)+Th*dTh*gdosprima(Th) #MOYAL
+      #dNIS=beta*pI*((pS-pI)*Th*2*gdosprima(Th)-Th*gprima(Th))-gamma*NIS  #MOYAL
+      #dNRS=gamma*NIS-beta*pI*pR*(Th**2)*gdosprima(Th) #MOYAL
+      #dNS2=(-beta*pI)*(Th*gprima(Th)+(Th**2)*gdosprima(Th)+(Th**3)*gtresprima(Th))+beta*pI*pS*EK*(2*NS2+NS)
+      dNS2=(-beta*pI)*(Th*gprima(Th)+(Th**2)*gdosprima(Th)+(Th**3)*gtresprima(Th))
+      dS=dTh*gprima(Th)
+      dI=beta*pI*Th*gprima(Th)-gamma*I
+      dR=gamma*I
+      dN=beta*NIS*EK
+
+      dx=np.array([dTh,dNS,dNIS,dNRS,dNS2,dS,dI,dR,dN])
+      return dx
+    else:
+      return np.zeros(len(x))
+
 
  
 def int_rk4(f,x,dt,t,EK,beta,gamma,M):
@@ -52,30 +80,37 @@ def int_rk4(f,x,dt,t,EK,beta,gamma,M):
  
 def integra(T,dt,EK,beta,gamma,M):
     tiempo_modelo=np.arange(0,T,dt)
-    sir=np.zeros([7,len(tiempo_modelo)])
+    sir=np.zeros([9,len(tiempo_modelo)])
 
-    epsilon=0.01
-    sir[0,0]=invg(1-epsilon)
-    sir[1,0]=epsilon/(1-epsilon)
-    sir[2,0]=(1-2*epsilon)/(1-epsilon)
+
+    epsilon=1/M  
+    alpha0=invg(1-epsilon)
+    sir[0,0]=alpha0
+    sir[1,0]=alpha0*gprima(alpha0)#/gprima(1)
+    sir[2,0]=1*gprima(1)-alpha0*gprima(alpha0)#/gprima(1)
     sir[3,0]=0
-    sir[4,0]=epsilon
- 
+    sir[4,0]=((alpha0**2)*gdosprima(alpha0)+alpha0*gprima(alpha0))#/gprima(1)
+    sir[5,0]=1-epsilon
+    sir[6,0]=epsilon
+    sir[7,0]=0
+    sir[8,0]=gprima(1)
+    
     R2t=np.zeros(int(T/dt)-1)
     for i in range(len(tiempo_modelo)-1):
-      sir[:,i+1]=int_rk4(ecs,sir[:,i],dt,tiempo_modelo[i],EK,beta,gamma,M)
+      aux=int_rk4(ecs,sir[:,i],dt,tiempo_modelo[i],EK,beta,gamma,M)
+      sir[:,i+1]=[max(0,aux[i]) for i in range(len(aux))]
       R2t[i]=1
     return np.array([sir,R2t])
+
 
 lambd=8
 g = lambda x: np.exp(lambd*(x-1))
 gprima = lambda x: lambd*np.exp(lambd*(x-1));
 gdosprima = lambda x: lambd*lambd*np.exp(lambd*(x-1))
 gtresprima = lambda x: (lambd**3)*np.exp(lambd*(x-1))
-
-H = lambda x: x*gdosprima(x)/gprima(x)
-
 invg=inversefunc(g)
+
+
 
 #M=10000
 #EK=0.9*0+0.1*50
@@ -90,10 +125,18 @@ def sir_num(T,dt,EK,ga,b,lamb,pob):
     gamma=ga
     lambd=lamb
     M=pob
+    g = lambda x: np.exp(lambd*(x-1))
+    gprima = lambda x: lambd*np.exp(lambd*(x-1));
+    gdosprima = lambda x: lambd*lambd*np.exp(lambd*(x-1))
+    gtresprima = lambda x: (lambd**3)*np.exp(lambd*(x-1))
+    invg=inversefunc(g)
     sirss=integra(T,dt,EK,beta,gamma,M)
-    th1,pI1,pS1,pR1,I,R,V=sirss[0]
-    S=g(th1)
-    
+    th,NS,NIS,NRS,NS2,S,I,R,N=sirss[0]
+    plb.figure()
+    plb.plot(S)
+    plb.plot(I)
+    plb.plot(R)
+    plb.show()
     return np.array([S,I,R])
 
 
