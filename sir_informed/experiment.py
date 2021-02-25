@@ -72,11 +72,12 @@ from model import Environment, Parameters
 
 import model
 import networkx as nx
+import seaborn as sns
 # from SIRSS_numeric import sir_num
 
 DURATION = 4
 RETRIES = 10
-output_columns = ['t','I','S','R','E', 'retry']
+output_columns = ['t','I','S','R','retry']
 
 def run_single(retry=0):
     environ = Environment(name="SIR over CM")
@@ -134,11 +135,24 @@ def run_multiple_retries():
 
     # sir_num(T,dt,EK,ga,b,lamb,pob):
     # Sn,In,Rn=sir_num(5000*0.09,0.09,0,1,3,8,10000)
+
+    __import__('ipdb').set_trace()
+    aux = data.groupby('retry').max().reset_index()
+    aux = aux[(aux.R > 10)]
+    data = data[data.retry.isin(aux.retry)]
+    data_melteada = pd.melt(data, id_vars=['t', 'retry'], value_vars=['S', 'I', 'R'])
+
+    fig,ax=plt.subplots()
+    colors=["#FF0B04","#4374B3","#228800"]
+    sns.set_palette(sns.color_palette(colors))
+    sns.lineplot(data=data_melteada, x='t', y='value', hue='variable',ax=ax,color=['r','g','b'])
+    ax.set_xticklabels(range(-1,4,1))
+    plt.savefig('agent_new.png')
     
-    fig=plt.figure()
-    plt.plot(S,label='S')
-    plt.plot(I,label='I')
-    plt.plot(R,label='R')
+    # fig=plt.figure()
+    # plt.plot(S,label='S')
+    # plt.plot(I,label='I')
+    # plt.plot(R,label='R')
    
     # plt.plot(199*Sn,label='Snumeric')
     # plt.plot(199*In,label='Inumeric')
