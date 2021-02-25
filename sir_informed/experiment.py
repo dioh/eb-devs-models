@@ -75,8 +75,8 @@ import networkx as nx
 import seaborn as sns
 # from SIRSS_numeric import sir_num
 
-DURATION = 4
-RETRIES = 10
+DURATION = 10
+RETRIES = 1
 output_columns = ['t','I','S','R','retry']
 
 def run_single(retry=0):
@@ -146,8 +146,8 @@ def run_multiple_retries():
     colors=["#FF0B04","#4374B3","#228800"]
     sns.set_palette(sns.color_palette(colors))
     sns.lineplot(data=data_melteada, x='t', y='value', hue='variable',ax=ax,color=['r','g','b'])
-    ax.set_xticklabels(range(-1,4,1))
-    plt.savefig('agent_new.png')
+    # ax.set_xticklabels(range(-1,4,1))
+    plt.savefig('agent_new_2.png')
     
     # fig=plt.figure()
     # plt.plot(S,label='S')
