@@ -26,6 +26,7 @@ from pypdevs.DEVS import *
 from pypdevs.infinity import INFINITY
 
 # UTIL FUNCTIONS
+np.random.seed(0)
 
 def gini(x):
     """Compute Gini coefficient of array of values"""
@@ -56,7 +57,11 @@ class Parameters:
     #Agents' vision _v_ distribution | U[1,6]
     VISION = (1,6)
     #Agents' maximum age _max-age_ distribution | U[60,100]
-    EMERGENT_MODEL = False
+    # Lower GINI_VALUES enables the fasting model
+    GINI_THRESHOLD = 0.05
+    # Agents with more than WEALTH_TRESHOLD will fast if also above GINI THRESHOLD
+    WEALTH_TRESHOLD = 90
+    
 
 def enum(**kwargs):
     class Enum(object): pass
@@ -65,7 +70,7 @@ def enum(**kwargs):
     return obj
 
 AtomicType = enum(CELL = "CELL", AGENT = "AGENT")
-ENVProps = enum(GRID = "GRID", MAX_SUGAR_NEXT_CELL = "MAX_SUGAR_NEXT_CELL", RANDOM_EMPTY_CELL = "RANDOM_EMPTY_CELL")
+ENVProps = enum(GRID = "GRID", MAX_SUGAR_NEXT_CELL = "MAX_SUGAR_NEXT_CELL", RANDOM_EMPTY_CELL = "RANDOM_EMPTY_CELL", IS_TOP_RICHEST='To richest from the model')
 GRIDProps = enum(EMPTY = ' ', OCCUPIED = '*', DEAD = 'D')
 
 class AgentState(object):
@@ -77,6 +82,7 @@ class AgentState(object):
         self.ta = 0.0
         self.alive = True
         self.setstats( position )
+        self.fasting = False
 
     def setstats(self, position):
         self.age = 0.0
@@ -86,7 +92,7 @@ class AgentState(object):
         self.wealth = int(uniform( Parameters.INITIAL_WEALTH ) )
 
     def die(self):
-	self.alive = False
+        self.alive = False
 
     @property
     def name(self):
@@ -106,7 +112,7 @@ class AgentState(object):
         return(self._name, self._state)
 
     def __repr__(self):
-        return "Agent: %s, culture: %s" % (str(self.name), str(self.culture))
+        return "Agent: %s, " % (str(self.name))
 
 class CellState(object):
     def __init__(self, name, id, position, max_capacity):
@@ -137,7 +143,7 @@ class CellState(object):
         return(self._name, self._state)
 
     def __repr__(self):
-        return "Agent: %s, culture: %s" % (str(self.name), str(self.culture))
+        return "Agent: %s" % (str(self.name))
 
 class LogAgent(AtomicDEVS):
     def __init__(self):
@@ -220,9 +226,10 @@ class Agent(AtomicDEVS):
         # Ask enviroment for the next max sugar cell
         next_cell = self.parent.getContextInformation( ENVProps.MAX_SUGAR_NEXT_CELL, pos = self.state.position, vision = self.state.vision )
         if next_cell is not None:
-            cell_pos, cell_sugar = next_cell
-            self.state.position = cell_pos
-            self.state.wealth+= cell_sugar
+            if not self.state.fasting: 
+                cell_pos, cell_sugar = next_cell
+                self.state.position = cell_pos
+                self.state.wealth+= cell_sugar
         
         # Metabolize
         self.state.wealth-= self.state.metabolic_rate
@@ -237,12 +244,17 @@ class Agent(AtomicDEVS):
             self.state.die()
 
         # Save position movement for enviroment global transition
-        self.y_up = ( AtomicType.AGENT, last_position, self.state.position, self.state.alive )
+        self.y_up = ( self.state.id, AtomicType.AGENT, last_position, self.state.position, self.state.alive, self.state.wealth)
+        gini_condition, wealth_percentile = self.parent.getContextInformation( ENVProps.IS_TOP_RICHEST)
+    
+        self.state.fasting = gini_condition and self.state.wealth > wealth_percentile
 
         return self.state
 
     def outputFnc(self):
-        return {self.cells_dict[self.state.position] : "VACIAR"}
+        if not self.state.fasting:
+            return {self.cells_dict[self.state.position] : "VACIAR"}
+        return {}
 
     def timeAdvance(self):
         self.state.ta = reverse_exponential(0.5) if self.state.alive else INFINITY
@@ -255,6 +267,7 @@ class Environment(CoupledDEVS):
         self.create_grid() 
         self.create_agents() 
         self.create_logagent() 
+
 
     #########################################################
     # INIT  METHODS #########################################
@@ -282,6 +295,8 @@ class Environment(CoupledDEVS):
     def create_agents(self):
         self.agents = {}
         agent_positions = random.sample(range(Parameters.GRID_SIZE[0] * Parameters.GRID_SIZE[1]), Parameters.POPULATION_SIZE)
+
+        self.wealth = {}
         for i, pos in enumerate(agent_positions):
             ag_id = int(i) 
             grid_pos = ( int(pos / Parameters.GRID_SIZE[0]), int(pos % Parameters.GRID_SIZE[1]) )
@@ -289,11 +304,14 @@ class Environment(CoupledDEVS):
             self.occupation_grid[grid_pos[0]][grid_pos[1]] = GRIDProps.OCCUPIED
             self.agents[ag_id] = self.addSubModel(agent)
 
+            self.wealth[ag_id] = agent.state.wealth
+
             for ce_id, cell in self.cells.items():
                 cellinport = cell.addInPort(name=ag_id)
                 agtoutport = agent.addOutPort(name=ce_id)
                 agent.cells_dict[cell.state.position] = agtoutport
                 self.connectPorts(agtoutport, cellinport)
+
 
     ##########################################################
     # SUGARSCAPE MODEL METHODS ###############################
@@ -337,9 +355,14 @@ class Environment(CoupledDEVS):
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         for x in x_b_micro:
             if x[0] == AtomicType.AGENT:
-                atomictype, last_pos, actual_pos, agent_alive = x
+                agent_id, atomictype, last_pos, actual_pos, agent_alive, agent_wealth = x
                 self.occupation_grid[last_pos[0]][last_pos[1]] = GRIDProps.EMPTY
                 self.occupation_grid[actual_pos[0]][actual_pos[1]] = GRIDProps.OCCUPIED if agent_alive else GRIDProps.DEAD
+                if agent_alive:
+                    self.wealth[agent_id] = agent_wealth
+                else:
+                    if agent_id in self.wealth:
+                        del self.wealth[agent_id]
             elif x[0] == AtomicType.CELL:
                 atomictype, pos, sugar = x
                 self.sugar_grid[pos[0]][pos[1]] = sugar
@@ -357,6 +380,10 @@ class Environment(CoupledDEVS):
             return self.max_sugar_next_cell(kwargs["pos"],kwargs["vision"])
         elif(property == ENVProps.RANDOM_EMPTY_CELL):
             return self.random_empty_cell()
+        elif(property == ENVProps.IS_TOP_RICHEST):
+            wealth_arr = np.array(self.wealth.values())
+            g = gini(wealth_arr)
+            return  g > Parameters.GINI_THRESHOLD, np.percentile(wealth_arr, Parameters.WEALTH_TRESHOLD)
 
     def select(self, immChildren):
         return immChildren[0]
