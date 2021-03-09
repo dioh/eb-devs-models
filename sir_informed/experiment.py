@@ -25,6 +25,7 @@ import fnmatch
 from matplotlib import pyplot as plt
 # Import the model to be simulated
 from model import Environment, Parameters
+import numpy as np
 
 
 #    ======================================================================
@@ -76,10 +77,12 @@ import seaborn as sns
 # from SIRSS_numeric import sir_num
 
 DURATION = 4
-RETRIES = 10
+RETRIES = 20
 output_columns = ['t','I','S','R','retry']
 
+dfs = []
 def run_single(retry=0):
+    global dfs
     environ = Environment(name="SIR over CM")
     sim = Simulator(environ)
     initial_states = [(ag.state.name, ag.state.state, 0) for ag in environ.agents] 
@@ -90,65 +93,48 @@ def run_single(retry=0):
     # sim.setVerbose(None)
     sim.simulate()
     dataframe = pd.DataFrame(environ.log_agent.stats)
+    dataframe.columns = ['t','S', 'I', 'R']
     dataframe['retry'] = retry
+    dataframe['Quarantine Threshold'] = Parameters.QUARANTINE_THRESHOLD
     tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='sir_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
     outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
     nx.write_gml(environ.G, outfilename)
-
+    dfs.append(dataframe)
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
-    Parameters.QUARANTINE_ACCEPTATION = 1
-    Parameters.QUARANTINE_THRESHOLD = 1
-    # Parameters.RHO_PROB = 3
-    # Parameters.BETA_PROB = 0.5
+    Parameters.QUARANTINE_ACCEPTATION = 1# 0.5
+    # Parameters.QUARANTINE_THRESHOLD = 0.25
 
-    # TOPOLOGY_FILE,
-    # N,
-    # INITIAL_PROB,
-    # INFECT_PROB,
-    # RECOV_THRHLD,
-    #for i in progressbar.progressbar(range(RETRIES)):
+    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
     for i in range(RETRIES):
         run_single(retry=i)
 
-    filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'sir_model*')]
-    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    outfilename = "results/sir_model_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
-    fin = fileinput.input(filenames)
-    with open(outfilename, 'w') as fout:
-        fout.write(",".join(output_columns))
-        fout.write('\n')
+for i in [0.15, 0.25, 1]:
+    Parameters.QUARANTINE_THRESHOLD = i
+    run_multiple_retries()
 
-        for line in fin:
-            fout.write(line)
+data = pd.concat(dfs)
 
-    fin.close()
-    for file in filenames: os.remove(file)
+aux = data.groupby('retry').max().reset_index()
+aux = aux[(aux.R > 50)]
+data = data[data.retry.isin(aux.retry)]
+data_melteada = pd.melt(data, id_vars=['t', 'retry', 'Quarantine Threshold'], value_vars=['S', 'I', 'R'])
 
-    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+data_melteada['value'] = data_melteada['value'] / float(300)
+data_melteada = data_melteada.rename(columns={'variable': 'State', 't': 'Time', 'value': 'Proportion'})
 
-    data = pd.read_csv(outfilename)
-    filtered_data = data[(data.t > 0)]
-    t,S,I,R=data.t,data.S,data.I,data.R
+fig, ax =plt.subplots()
+colors=["#FF0B04","#4374B3","#228800"]
+sns.set_palette(sns.color_palette(colors))
+sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State', style='Quarantine Threshold',  ax=ax,color=['r','g','b'], ci=None)
 
-    
-    fig_filename = outfilename.replace('csv', 'png')
+plt.setp(ax,yticks=np.arange(0, 1.01, 0.10))
 
-    aux = data.groupby('retry').max().reset_index()
-    aux = aux[(aux.R > 10)]
-    data = data[data.retry.isin(aux.retry)]
-    data_melteada = pd.melt(data, id_vars=['t', 'retry'], value_vars=['S', 'I', 'R'])
-
-    fig,ax=plt.subplots()
-    colors=["#FF0B04","#4374B3","#228800"]
-    sns.set_palette(sns.color_palette(colors))
-    sns.lineplot(data=data_melteada, x='t', y='value', hue='variable',ax=ax,color=['r','g','b'])
-    # ax.set_xticklabels(range(-1,4,1))
-    plt.savefig('agent_new_2.png')
-
-run_multiple_retries()
+plt.legend(loc='best', #'upper center', bbox_to_anchor=( 0.5, 1.25),
+           ncol=1)#, mode="expand") #, borderaxespad=0.)
+plt.savefig('agent_new_2.png')
 
 #BETA_PROB = 10 RHO_PROB = 0.9
 #T,dt,EK,g,b,lamb,pob
