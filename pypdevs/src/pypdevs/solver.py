@@ -220,6 +220,8 @@ class Solver(object):
         # Finally, call the deltaGTransition for EB-DEVS Extension
         if x_bag:
             a_model = aDEVS.parent
+            a_model.server = self
+            self.dc_altered = set()
             a_model.globalTransition(t, x_bag)
             # Now propagate
             while a_model.parent:
