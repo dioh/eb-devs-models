@@ -72,7 +72,7 @@ def enum(**kwargs):
     return obj
 
 AtomicType = enum(CELL = "CELL", AGENT = "AGENT")
-ENVProps = enum(GRID = "GRID", MAX_SUGAR_NEXT_CELL = "MAX_SUGAR_NEXT_CELL", RANDOM_EMPTY_CELL = "RANDOM_EMPTY_CELL", RANDOM_NEXT_CELL = "RANDOM_NEXT_CELL", UNRATIONAL_NEXT_CELL = "UNRATIONAL_NEXT_CELL", GINI = 'GINI')
+ENVProps = enum(GRID = "GRID", MAX_SUGAR_NEXT_CELL = "MAX_SUGAR_NEXT_CELL", RANDOM_EMPTY_CELL = "RANDOM_EMPTY_CELL", RANDOM_NEXT_CELL = "RANDOM_NEXT_CELL", GINI = 'GINI')
 GRIDProps = enum(EMPTY = ' ', OCCUPIED = '*', DEAD = 'D')
 
 class AgentState(object):
@@ -298,7 +298,7 @@ class Environment(CoupledDEVS):
         self.occupation_grid = [ [ GRIDProps.EMPTY for i in range(Parameters.GRID_SIZE[0]) ] for j in range(Parameters.GRID_SIZE[1]) ]
         cell_positions = [ (i,j) for i in range(Parameters.GRID_SIZE[0]) for j in range(Parameters.GRID_SIZE[1]) ]
         for ce_id, grid_pos in enumerate(cell_positions):
-            max_capacity = generate_matryx.mat[grid_pos[0]][grid_pos[1]]
+            max_capacity = int(generate_matryx.mat[grid_pos[0]][grid_pos[1]])
             cell = Cell(name="cell %d" % ce_id, id=ce_id, position = grid_pos, max_capacity = max_capacity)
             self.sugar_grid[grid_pos[0]][grid_pos[1]] = cell.state.sugar
             self.cells[ce_id] = self.addSubModel(cell)
@@ -327,28 +327,6 @@ class Environment(CoupledDEVS):
         # Select cells in agent vision range. Agents cannot see in diagonal directions.
         directions = list(range(1,int(agent_vision)+1)) + list(range(-int(agent_vision),0))
         cells_in_range = [ ( agent_pos[0], agent_pos[1]+v ) for v in directions ] + [ ( agent_pos[0]+h, agent_pos[1] ) for h in directions ]
-        # Check borders
-        cells_in_range=[(i,j) for i,j in cells_in_range if i>=0 and j>=0 and i<len(self.sugar_grid) and j<len(self.sugar_grid[0])]
-        # Select non empty
-        cells_in_range = [ (i,j) for i,j in cells_in_range if not self.occupation_grid[i][j] == GRIDProps.OCCUPIED ]
-        # If all occupied within range, not move
-        if len(cells_in_range)==0: return None
-        
-        # Return the nearest among those with more sugar 
-        cells_in_range = [ ((i,j),self.sugar_grid[i][j]) for i,j in cells_in_range ]
-        max_sugar = max([ s for p,s in cells_in_range ])
-        max_sugar_cells = [ (ij,s) for ij,s in cells_in_range if s==max_sugar ]
-        min_distance_cells = [ ((i,j),s,( (i-agent_pos[0])**2 + (j-agent_pos[1])**2 )**0.5) for ((i,j),s) in max_sugar_cells ]
-        min_distance = min([ d for p,s,d in min_distance_cells ])
-        min_distance_cells = [ (ij,s) for ij,s,d in min_distance_cells if d==min_distance ]
-        # Randomly if more than one
-        np.random.shuffle( max_sugar_cells )
-        return max_sugar_cells[0]
-
-    def unrational_next_cell(self, agent_pos, agent_vision):
-        # Select cells in agent vision range. Agents cannot see in diagonal directions.
-        directions = list(range(1,int(agent_vision)+1)) + list(range(-int(agent_vision),0))
-        cells_in_range = [ ( agent_pos[0]+h, agent_pos[1]+v ) for v in directions for h in directions ]
         # Check borders
         cells_in_range=[(i,j) for i,j in cells_in_range if i>=0 and j>=0 and i<len(self.sugar_grid) and j<len(self.sugar_grid[0])]
         # Select non empty
@@ -419,8 +397,6 @@ class Environment(CoupledDEVS):
             return g
         elif(property == ENVProps.MAX_SUGAR_NEXT_CELL):
             return self.max_sugar_next_cell(kwargs["pos"],kwargs["vision"])
-        elif(property == ENVProps.UNRATIONAL_NEXT_CELL):
-            return self.unrational_next_cell(kwargs["pos"],kwargs["vision"])
         elif(property == ENVProps.RANDOM_NEXT_CELL):
             return self.random_next_cell(kwargs["pos"],kwargs["vision"])
         elif(property == ENVProps.RANDOM_EMPTY_CELL):
