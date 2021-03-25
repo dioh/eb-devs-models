@@ -76,7 +76,7 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 100
+DURATION = 1000
 RETRIES = 10
 
 def run_single(retry=0):
@@ -90,8 +90,6 @@ def run_single(retry=0):
     return environ.log_agent
 
 def run_multiple_retries():
-    Parameters.TOPOLOGY_FILE = 'topology/lattice.adj'
-
     stats = []
     for i in tqdm.tqdm(range(RETRIES)):
         logA = run_single(retry=i)
@@ -104,25 +102,27 @@ def run_multiple_retries():
     params+= "METABOLIC_RATE: U(%.1f,%.1f)\n" % model.Parameters.METABOLIC_RATE
     params+= "VISION: U(%.1f,%.1f)\n" % model.Parameters.VISION
 
-    avgs = [ np.average([ stats[j][i][1] for j in range(len(stats)) if i<len(stats[j]) ]) for i in range(len(stats[0])) ]
-    stds = [ np.std([ stats[j][i][1] for j in range(len(stats)) if i<len(stats[j]) ]) for i in range(len(stats[0])) ]
 
-    x, y = zip(* stats[0])
-    plt.errorbar( x, avgs, yerr=stds, label="U(%.2f,%.2f)" % model.Parameters.METABOLIC_RATE )
+    t, p, g = zip(* stats[0])
+    avgs = [ np.average([ stats[j][i][2] for j in range(len(stats)) if i<len(stats[j]) ]) for i in range(len(stats[0])) ]
+    stds = [ np.std([ stats[j][i][2] for j in range(len(stats)) if i<len(stats[j]) ]) for i in range(len(stats[0])) ]
+    plt.errorbar( t, avgs, yerr=stds, label="Gini Threshold: %.1f " % model.Parameters.GINI_THRESH )
 
     return params
 
 fig, ax = plt.subplots()
 
-for ht in [1,2,3,4,5,6]:
-	model.Parameters.METABOLIC_RATE = (ht,ht+1)
-	params = run_multiple_retries()
+for gt in [0.2, 0.3, 0.4, 0.5, 0.7, 1.0]:
+    model.Parameters.GINI_THRESH = gt
+    params = run_multiple_retries()
 
 plt.legend(loc="upper right", fontsize=12, ncol=2)
 plt.xlabel("Time", fontsize=35)
-plt.ylabel("Population",fontsize=35)
-plt.xlim((0,100))
-plt.ylim((0,80))
+plt.xlim((0,500))
+plt.ylabel("Gini coefficient",fontsize=35)
+plt.ylim((0,1))
+#plt.ylabel("Population",fontsize=35)
+#plt.ylim((250,400))
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.tight_layout()
@@ -133,4 +133,5 @@ outfile+= "-%d_%d" % model.Parameters.METABOLIC_RATE
 outfile+= "-%d_%d" % model.Parameters.VISION
 plt.savefig(outfile)
 plt.show()
+
 
