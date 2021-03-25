@@ -72,7 +72,7 @@ def enum(**kwargs):
     return obj
 
 AtomicType = enum(CELL = "CELL", AGENT = "AGENT")
-ENVProps = enum(GRID = "GRID", MAX_SUGAR_NEXT_CELL = "MAX_SUGAR_NEXT_CELL", RANDOM_EMPTY_CELL = "RANDOM_EMPTY_CELL", RANDOM_NEXT_CELL = "RANDOM_NEXT_CELL", GINI = 'GINI')
+ENVProps = enum(GRID = "GRID", MAX_SUGAR_NEXT_CELL = "MAX_SUGAR_NEXT_CELL", RANDOM_EMPTY_CELL = "RANDOM_EMPTY_CELL", GINI = 'GINI')
 GRIDProps = enum(EMPTY = ' ', OCCUPIED = '*', DEAD = 'D')
 
 class AgentState(object):
@@ -345,22 +345,6 @@ class Environment(CoupledDEVS):
         np.random.shuffle( max_sugar_cells )
         return max_sugar_cells[0]
 
-    def random_next_cell(self, agent_pos, agent_vision):
-        # Select cells in agent vision range. Agents cannot see in diagonal directions.
-        directions = list(range(1,int(agent_vision)+1)) + list(range(-int(agent_vision),0))
-        cells_in_range = [ ( agent_pos[0], agent_pos[1]+v ) for v in directions ] + [ ( agent_pos[0]+h, agent_pos[1] ) for h in directions ]
-        # Check borders
-        cells_in_range=[(i,j) for i,j in cells_in_range if i>=0 and j>=0 and i<len(self.sugar_grid) and j<len(self.sugar_grid[0])]
-        # Select non empty
-        cells_in_range = [ (i,j) for i,j in cells_in_range if not self.occupation_grid[i][j] == GRIDProps.OCCUPIED ]
-        # If all occupied within range, not move
-        if len(cells_in_range)==0: return None
-        
-        # Return random within vision 
-        cells_in_range = [ ((i,j),self.sugar_grid[i][j]) for i,j in cells_in_range ]
-        np.random.shuffle( cells_in_range )
-        return cells_in_range[0]
-
     def random_empty_cell(self):
         empty_cells = [ (i,j) for i,r in enumerate(self.occupation_grid) for j, c in enumerate(r) if not c == GRIDProps.OCCUPIED ]
         np.random.shuffle( empty_cells )
@@ -393,12 +377,9 @@ class Environment(CoupledDEVS):
             p=len([ ag for i,ag in self.agents.items() if ag.state.alive ]) 
             return ( list(self.occupation_grid), list(self.sugar_grid), p )
         elif(property == ENVProps.GINI):
-            g=gini(np.array([ ag.state.wealth for i,ag in self.agents.items() if ag.state.alive ]))
-            return g
+            return gini(np.array([ ag.state.wealth for i,ag in self.agents.items() if ag.state.alive ]))
         elif(property == ENVProps.MAX_SUGAR_NEXT_CELL):
             return self.max_sugar_next_cell(kwargs["pos"],kwargs["vision"])
-        elif(property == ENVProps.RANDOM_NEXT_CELL):
-            return self.random_next_cell(kwargs["pos"],kwargs["vision"])
         elif(property == ENVProps.RANDOM_EMPTY_CELL):
             return self.random_empty_cell()
 
