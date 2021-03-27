@@ -27,6 +27,18 @@ import shutil
 import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
+
+SMALL_SIZE = 12
+MEDIUM_SIZE = 16
+BIGGER_SIZE = 20
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)  
 # Import the model to be simulated
 from model import Environment, Parameters
 
@@ -112,18 +124,18 @@ def run_multiple_retries():
 
 fig, ax = plt.subplots()
 
-model.Parameters.POPULATION_SIZE = 200
+model.Parameters.POPULATION_SIZE = 266
 for ht in [0.20,0.35,0.50,0.65,0.80,0.95]:
 	model.Parameters.HAPPINESS_THRESHOLD = ht
 	run_multiple_retries()
 
-plt.legend(loc="upper right", fontsize=15, ncol=2)
+plt.legend(loc="upper right", ncol=2)
 plt.xlim((0,40))
 plt.ylim((0,100))
-plt.xticks(fontsize=25)
-plt.yticks(fontsize=25)
-plt.xlabel("Time", fontsize=35)
-plt.ylabel("Unhappy agents (%)", fontsize=35)
+# plt.xticks(fontsize=25)
+# plt.yticks(fontsize=25)
+plt.xlabel("Time")
+plt.ylabel("Unhappy agents (%)")
 plt.tight_layout()
 plt.savefig("results/scheling-%d-%d-%d-%.2f-%.2f.png" % (model.Parameters.POPULATION_SIZE, model.Parameters.GRID_SIZE[0], model.Parameters.GRID_SIZE[1], model.Parameters.RED_PROBABILITY, model.Parameters.HAPPINESS_THRESHOLD))
 plt.show()
