@@ -30,6 +30,17 @@ from matplotlib import pyplot as plt
 # Import the model to be simulated
 from model import Environment, Parameters
 
+SMALL_SIZE = 12
+MEDIUM_SIZE = 16
+BIGGER_SIZE = 20
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)  
 
 #    ======================================================================
 
@@ -76,7 +87,7 @@ from model import Environment, Parameters
 
 import model
 
-DURATION = 100
+DURATION = 1000
 RETRIES = 10
 
 
@@ -89,7 +100,7 @@ def run_single(retry=0):
     sim.simulate()
     dataframe = pd.DataFrame(environ.agents[-1].stats)
     dataframe['retry'] = retry
-    dataframe['fashion_rate'] = Parameters.FASHION_RATE
+    dataframe['Fashion Rate'] = Parameters.FASHION_RATE
     tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/axelrod_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
 
@@ -102,7 +113,7 @@ def run_single(retry=0):
     # outfilenamestates = "results/sir_model_%s_emergence_%s_rt.csv" % (topology_name, Parameters.EMERGENT_MODEL)
     # pd.DataFrame(states).to_csv(outfilenamestates)
 
-FASHIONS = [0, 0.25, 0.5, 0.75, 1]
+FASHIONS = [0 , 0.25, 0.5, 0.75, 1]
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'topology/lattice.adj'
@@ -113,13 +124,13 @@ def run_multiple_retries():
 
     filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'axelrod_model*')]
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    outfilename = "results/axelrod_%s_emergence_%s_retries_%d.csv" % (topology_name, Parameters.EMERGENT_MODEL, RETRIES)
+    outfilename = "results/axelrod_%s_Q_%s_retries_%d.csv" % (topology_name, Parameters.CULTURE_LENGTH, RETRIES)
     fin = fileinput.input(filenames)
 
     if not os.path.exists("results"):
         os.mkdir("results")
 
-    output_columns = ['t', 'number_of_cultures',  'retry', 'fashion_rate']
+    output_columns = ['Time', 'Number of Cultures',  'retry', 'Fashion Rate']
     with open(outfilename, 'w') as fout:
         fout.write(",".join(output_columns))
         fout.write('\n')
@@ -133,14 +144,25 @@ def run_multiple_retries():
     for file in filenames: os.remove(file)
 
     data = pd.read_csv(outfilename, header=0)
-    filtered_data = data[(data.t > 0)]
+    filtered_data = data[(data.Time % 10 == 0)]
     plt.figure(figsize=(12,8))
 
-    ax = sns.pointplot(x="t", y="number_of_cultures", data=filtered_data,
-            ci="sd", capsize=.2, dodge=True, hue='fashion_rate')
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+    ax = sns.pointplot(x="Time", y="Number of Cultures", data=filtered_data,
+            ci="sd", capsize=.2, dodge=True, hue='Fashion Rate')
+
+    # ax.xaxis.set_major_locator(plt.MaxNLocator(10))
+    # ax.xaxis.set_major_locator(plt.MultipleLocator(100))
+    # ax.xaxis.set_minor_locator(plt.MultipleLocator(10))
+    for ind, label in enumerate(ax.get_xticklabels()):
+        if ind % 10 == 0:  # every 10th label is kept
+            label.set_visible(True)
+        else:
+            label.set_visible(False)
+    # ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
     fig_filename = outfilename.replace('csv', 'png')
     ax.get_figure().savefig(fig_filename)
+
+
 
 
 run_multiple_retries()

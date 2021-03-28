@@ -28,6 +28,18 @@ import shutil
 import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
+
+SMALL_SIZE = 12
+MEDIUM_SIZE = 16
+BIGGER_SIZE = 20
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)  
 # Import the model to be simulated
 from model import Environment, Parameters
 
@@ -66,13 +78,23 @@ def fit_power(df, parameters):
     cnt = df.groupby('degree').mean().frequency.values
     deg = np.unique(df.degree.values)
 
+    missing = np.setdiff1d(range(min(deg), max(deg)), deg)
+    new_df = pd.DataFrame({'degree': missing, 'frequency': 0})
+
+    df = df.append(new_df)
+
     popt, pcov = sc.optimize.curve_fit(func_powerlaw, deg, cnt, maxfev=5000)
     yajuste2 = func_powerlaw(np.array(deg), *popt)
 
     plt.figure(figsize=(12,8))
     yajuste2 = func_powerlaw(np.linspace(min(deg), max(deg), 50), *popt)
     sns.pointplot(x=np.linspace(min(deg), max(deg), 50), y=yajuste2)
-    sns.barplot(data=df, x='degree', y='frequency', color='gray')
+    ax = sns.barplot(data=df, x='degree', y='frequency', color='gray')
+    for ind, label in enumerate(ax.get_xticklabels()):
+        if ind % 5 == 0:  # every 10th label is kept
+            label.set_visible(True)
+        else:
+            label.set_visible(False)
 
     plt.xlabel('Degree')
     plt.ylabel('Frequency')
@@ -157,13 +179,14 @@ def run_single(retry=0):
 
     dfs.append(create_nodes_degrees_df(environ, retry))
 
+all_degree_dfs = []
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'topology/graph_n10.adj'
     global degrees_dfs
     global dfs
 
-    for connect_to in [1, 2, 3]:
+    for connect_to in [2, 3]:
         Parameters.CONNECT_TO = connect_to
         for i in tqdm.tqdm(range(RETRIES)):
             run_single(retry=i)
@@ -172,10 +195,11 @@ def run_multiple_retries():
         dfs = []
 
         degrees_df = pd.concat(degrees_dfs)
-        degrees_df.columns = ['t', 'avg_deg', 'sd_deg', 'num_nodes', 'connect_to', 'retry']
+        degrees_df.columns = ['Time', 'Average Degree', 'sd_deg', 'num_nodes', 'connect_to', 'retry']
+        all_degree_dfs.append(degrees_df)
 
         plt.figure(figsize=(12,8))
-        sns.relplot(x='t', y='avg_deg',  data=degrees_df[degrees_df['t'] % 10 == 0], kind='line')
+        sns.relplot(x='Time', y='Average Degree',  data=degrees_df[degrees_df['Time'] % 10 == 0], kind='line')
 
         plt.savefig('pruebadegs_%s.png' % connect_to)
         degrees_dfs = []
@@ -183,6 +207,14 @@ def run_multiple_retries():
 
 
 run_multiple_retries()
+degrees_df = pd.concat(all_degree_dfs)
+degrees_df.columns = ['Time', 'Average Degree', 'sd_deg', 'num_nodes', 'connect_to', 'retry']
+
+plt.figure(figsize=(12,8))
+sns.relplot(x='Time', y='Average Degree',  data=degrees_df[degrees_df['Time'] % 10 == 0], kind='line', hue='connect_to')
+plt.tight_layout()
+
+plt.savefig('pruebadegs_all.png')
 
 #    ======================================================================
 
