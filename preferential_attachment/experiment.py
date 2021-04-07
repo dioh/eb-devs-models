@@ -86,10 +86,16 @@ def fit_power(df, parameters):
     popt, pcov = sc.optimize.curve_fit(func_powerlaw, deg, cnt, maxfev=5000)
     yajuste2 = func_powerlaw(np.array(deg), *popt)
 
+    mean_freq = df.frequency.mean()
+    degree_for_mean_freq = df.iloc[(df['frequency']-mean_freq).abs().argsort()[:1]].degree.to_list()[0]
+
+
     plt.figure(figsize=(12,8))
     yajuste2 = func_powerlaw(np.linspace(min(deg), max(deg), 50), *popt)
     sns.pointplot(x=np.linspace(min(deg), max(deg), 50), y=yajuste2)
     ax = sns.barplot(data=df, x='degree', y='frequency', color='gray')
+    plt.axvline(degree_for_mean_freq, color='red')
+
     for ind, label in enumerate(ax.get_xticklabels()):
         if ind % 5 == 0:  # every 10th label is kept
             label.set_visible(True)
@@ -186,7 +192,7 @@ def run_multiple_retries():
     global degrees_dfs
     global dfs
 
-    for connect_to in [2, 3]:
+    for connect_to in [1, 2, 3]:
         Parameters.CONNECT_TO = connect_to
         for i in tqdm.tqdm(range(RETRIES)):
             run_single(retry=i)
@@ -195,7 +201,7 @@ def run_multiple_retries():
         dfs = []
 
         degrees_df = pd.concat(degrees_dfs)
-        degrees_df.columns = ['Time', 'Average Degree', 'sd_deg', 'num_nodes', 'connect_to', 'retry']
+        degrees_df.columns = ['Time', 'Average Degree', 'sd_deg', 'num_nodes', 'Connect To', 'retry']
         all_degree_dfs.append(degrees_df)
 
         plt.figure(figsize=(12,8))
@@ -208,10 +214,12 @@ def run_multiple_retries():
 
 run_multiple_retries()
 degrees_df = pd.concat(all_degree_dfs)
-degrees_df.columns = ['Time', 'Average Degree', 'sd_deg', 'num_nodes', 'connect_to', 'retry']
+degrees_df.columns = ['Time', 'Average Degree', 'sd_deg', 'num_nodes', 'Connect To', 'retry']
+degrees_df['Connect To'] = degrees_df['Connect To'].astype('category')
 
 plt.figure(figsize=(12,8))
-sns.relplot(x='Time', y='Average Degree',  data=degrees_df[degrees_df['Time'] % 10 == 0], kind='line', hue='connect_to')
+sns.relplot(x='Time', y='Average Degree',
+       data=degrees_df[(degrees_df['Time'] % 10 == 0)], kind='line', hue='Connect To')
 plt.tight_layout()
 
 plt.savefig('pruebadegs_all.png')
