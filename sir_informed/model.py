@@ -28,6 +28,7 @@ from pypdevs.DEVS import *
 
 from pypdevs.infinity import INFINITY
 from functools import total_ordering
+np.random.seed(0)
 
 class Parameters:
     TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
@@ -35,7 +36,7 @@ class Parameters:
     INITIAL_PROB = 0
     BETA_PROB = 3
     RHO_PROB = 3 #Gamma
-    TW_SIZE = 5
+    TW_SIZE = 8
     TW_TRHD = 50
     TW_BIN_SIZE = 15
     p=0.4
@@ -96,7 +97,7 @@ class AgentState(object):
         self._to_recover = False
         self._emergence = False
         self.neighbors = 0
-        self.free_deg = np.random.poisson(8) if id!=0 else 0
+        self.free_deg = np.random.poisson(5) if id!=0 else 0
         self.model = model
 
         self.neighbors_state = {}
@@ -198,8 +199,11 @@ class Agent(AtomicDEVS):
             if v == 'infect':
                 # If an agent is being infected.
                 if self.state.state == SIRStates.S\
-                        and not self.parent.getContextInformation(ENVProps.QUARANTINE_CONDITION)\
-                        and np.random.random() < Parameters.QUARANTINE_ACCEPTATION:
+                        and (
+                                (self.parent.getContextInformation(ENVProps.QUARANTINE_CONDITION)\
+                                        and np.random.random() < 1- Parameters.QUARANTINE_ACCEPTATION) 
+                                or 
+                                    not self.parent.getContextInformation(ENVProps.QUARANTINE_CONDITION)):
                     self.state.state = SIRStates.I
                     self.state.model_transition = True
                     self.state.share = True
@@ -243,11 +247,14 @@ class Agent(AtomicDEVS):
         return self.state
 
     def __lt__(self, other):
-        if other.state is None:
-            other_name = other.name
-        else:
-            other_name =other.state.name
-        return self.state.name < other_name
+        try:
+            if other.state is None:
+                other_name = other.name
+            else:
+                other_name = other.state.name
+            return self.state.name < other_name
+        except:
+            __import__('ipdb').set_trace()
 
     def __hash__(self):
         return hash(self.state.name)
@@ -425,7 +432,7 @@ class Environment(CoupledDEVS):
         if deg > sum(pk>0):
             return False
         
-        selected_agents = np.random.choice(max(0,list(self.nodes_free_deg.keys())), deg, p=pk,replace=False)
+        selected_agents = np.random.choice(max(0,list(self.nodes_free_deg.keys())), int(deg), p=pk,replace=False)
 
         
         neighbor_states = {}
@@ -447,5 +454,3 @@ class Environment(CoupledDEVS):
         self.agents[newly_inf_id].state.neighbors_state = neighbor_states
         self.agents[newly_inf_id].state.free_deg = 0
         return False
-
-

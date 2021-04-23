@@ -29,6 +29,20 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 # Import the model to be simulated
 from model import Environment, Parameters
+from matplotlib import pyplot as plt
+
+SMALL_SIZE = 12
+MEDIUM_SIZE = 16
+BIGGER_SIZE = 20
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)
+
 
 
 #    ======================================================================
@@ -116,15 +130,15 @@ for gt in [0.2, 0.3, 0.4, 0.5, 0.7, 1.0]:
     model.Parameters.GINI_THRESH = gt
     params = run_multiple_retries()
 
-plt.legend(loc="upper right", fontsize=12, ncol=2)
-plt.xlabel("Time", fontsize=35)
+plt.legend(loc="upper right", ncol=2)
+plt.xlabel("Time")
 plt.xlim((0,500))
-plt.ylabel("Gini coefficient",fontsize=35)
+plt.ylabel("Gini coefficient")
 plt.ylim((0,1))
 #plt.ylabel("Population",fontsize=35)
 #plt.ylim((250,400))
-plt.xticks(fontsize=25)
-plt.yticks(fontsize=25)
+# plt.xticks(fontsize=25)
+# plt.yticks(fontsize=25)
 plt.tight_layout()
 outfile = "results/epstein-%d" % model.Parameters.POPULATION_SIZE
 outfile+= "-%d_%d" % model.Parameters.GRID_SIZE

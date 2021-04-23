@@ -76,8 +76,20 @@ import networkx as nx
 import seaborn as sns
 # from SIRSS_numeric import sir_num
 
+SMALL_SIZE = 16
+MEDIUM_SIZE = 20
+BIGGER_SIZE = 24
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)
+
 DURATION = 4
-RETRIES = 20
+RETRIES = 30
 output_columns = ['t','I','S','R','retry']
 
 dfs = []
@@ -93,9 +105,10 @@ def run_single(retry=0):
     # sim.setVerbose(None)
     sim.simulate()
     dataframe = pd.DataFrame(environ.log_agent.stats)
-    dataframe.columns = ['t','S', 'I', 'R']
+    dataframe.columns = ['t','I', 'S', 'R']
     dataframe['retry'] = retry
     dataframe['Quarantine Threshold'] = Parameters.QUARANTINE_THRESHOLD
+    dataframe['Quarantine Acceptance'] = Parameters.QUARANTINE_ACCEPTATION
     tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='sir_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
     outfilename = "results/pa_model_dynamic_graph_%s.gml" % (topology_name)
@@ -104,37 +117,37 @@ def run_single(retry=0):
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'grafos_ejemplo/grafo_vacio'
-    Parameters.QUARANTINE_ACCEPTATION = 1# 0.5
-    # Parameters.QUARANTINE_THRESHOLD = 0.25
 
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
     for i in range(RETRIES):
         run_single(retry=i)
 
-for i in [0.15, 0.25, 1]:
-    Parameters.QUARANTINE_THRESHOLD = i
+for i in [1, 0.10, 0.40]:
+    Parameters.QUARANTINE_THRESHOLD = 0.15
+    Parameters.QUARANTINE_ACCEPTATION = i
     run_multiple_retries()
 
 data = pd.concat(dfs)
+data.to_csv('paraNumeric.csv')
 
 aux = data.groupby('retry').max().reset_index()
 aux = aux[(aux.R > 50)]
 data = data[data.retry.isin(aux.retry)]
-data_melteada = pd.melt(data, id_vars=['t', 'retry', 'Quarantine Threshold'], value_vars=['S', 'I', 'R'])
+data_melteada = pd.melt(data, id_vars=['t', 'retry', 'Quarantine Threshold', 'Quarantine Acceptance'], value_vars=['I', 'S', 'R'])
 
 data_melteada['value'] = data_melteada['value'] / float(300)
 data_melteada = data_melteada.rename(columns={'variable': 'State', 't': 'Time', 'value': 'Proportion'})
 
-fig, ax =plt.subplots()
+fig, ax =plt.subplots(figsize=(12, 14))
 colors=["#FF0B04","#4374B3","#228800"]
 sns.set_palette(sns.color_palette(colors))
-sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State', style='Quarantine Threshold',  ax=ax,color=['r','g','b'], ci=None)
+sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State', style='Quarantine Acceptance',  ax=ax,color=['r','g','b'], ci=None)
 
 plt.setp(ax,yticks=np.arange(0, 1.01, 0.10))
-
-plt.legend(loc='best', #'upper center', bbox_to_anchor=( 0.5, 1.25),
-           ncol=1)#, mode="expand") #, borderaxespad=0.)
-plt.savefig('agent_new_2.png')
+#plt.legend()
+plt.legend(bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
+plt.tight_layout()
+plt.savefig('agent_new_2.png', bbox_inches='tight')
 
 #BETA_PROB = 10 RHO_PROB = 0.9
 #T,dt,EK,g,b,lamb,pob

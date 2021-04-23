@@ -29,9 +29,9 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 
-SMALL_SIZE = 12
-MEDIUM_SIZE = 16
-BIGGER_SIZE = 20
+SMALL_SIZE = 20
+MEDIUM_SIZE = 35
+BIGGER_SIZE = 28
 
 plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
 plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
@@ -60,7 +60,7 @@ def create_nodes_degrees_df(environ, retry):
     degreeCount = collections.Counter(degree_sequence)
     deg, cnt = zip(*degreeCount.items())
 
-    df = pd.DataFrame({'degree':deg, 'frequency':cnt, 'retry':retry})
+    df = pd.DataFrame({'Degree':deg, 'Frequency':cnt, 'retry':retry})
 
     return df
 
@@ -75,26 +75,26 @@ def func_powerlaw(x,  m, c):
         return  x**m * c
 
 def fit_power(df, parameters):
-    cnt = df.groupby('degree').mean().frequency.values
-    deg = np.unique(df.degree.values)
+    cnt = df.groupby('Degree').mean().Frequency.values
+    deg = np.unique(df.Degree.values)
 
     missing = np.setdiff1d(range(min(deg), max(deg)), deg)
-    new_df = pd.DataFrame({'degree': missing, 'frequency': 0})
+    new_df = pd.DataFrame({'Degree': missing, 'Frequency': 0})
 
     df = df.append(new_df)
 
     popt, pcov = sc.optimize.curve_fit(func_powerlaw, deg, cnt, maxfev=5000)
     yajuste2 = func_powerlaw(np.array(deg), *popt)
 
-    mean_freq = df.frequency.mean()
-    degree_for_mean_freq = df.iloc[(df['frequency']-mean_freq).abs().argsort()[:1]].degree.to_list()[0]
+    mean_freq = df.Frequency.mean()
+    degree_for_mean_freq = df.iloc[(df['Frequency']-mean_freq).abs().argsort()[:1]].Degree.to_list()[0]
 
 
     plt.figure(figsize=(12,8))
     yajuste2 = func_powerlaw(np.linspace(min(deg), max(deg), 50), *popt)
     sns.pointplot(x=np.linspace(min(deg), max(deg), 50), y=yajuste2)
-    ax = sns.barplot(data=df, x='degree', y='frequency', color='gray')
-    plt.axvline(degree_for_mean_freq, color='red')
+    ax = sns.barplot(data=df, x='Degree', y='Frequency', color='gray')
+    # plt.axvline(degree_for_mean_freq, color='red')
 
     for ind, label in enumerate(ax.get_xticklabels()):
         if ind % 5 == 0:  # every 10th label is kept
@@ -102,8 +102,9 @@ def fit_power(df, parameters):
         else:
             label.set_visible(False)
 
-    plt.xlabel('Degree')
-    plt.ylabel('Frequency')
+    # ax.set_xlabel('Degree', fontsize=24)
+    # ax.set_ylabel('Frequency', fontsize=24)
+
     
     plt.savefig('prueba_%s.png' % str(parameters))
 

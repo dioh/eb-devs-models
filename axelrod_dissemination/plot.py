@@ -1,10 +1,13 @@
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-SMALL_SIZE = 12
-MEDIUM_SIZE = 16
-BIGGER_SIZE = 20
+
+SMALL_SIZE = 22
+MEDIUM_SIZE = 24
+BIGGER_SIZE = 28
 
 plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
 plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
