@@ -110,6 +110,7 @@ class AgentState(object):
     def set_infection_values(self): 
         prob = 0
         neighbors_states = self.neighbors_state.values()
+        self.model_transition = True
         if len(neighbors_states) >  0 and sum(np.array(neighbors_states) == SIRStates.S) > 0:
             prob = (float(Parameters.RHO_PROB) / (self.deg * Parameters.BETA_PROB+Parameters.RHO_PROB))
             self.to_recover = np.random.random() < prob
@@ -291,6 +292,14 @@ class Agent(AtomicDEVS):
         self.state.neighbors +=1
         return inport, outport
 
+    def modelTransition(self, state):
+        if self.state.model_transition and \
+                not self.state.to_recover and \
+                self.state.state == SIRStates.I:
+            state["newly_infected"] = self.state
+            return True
+        return False
+
     def timeAdvance(self):
         """
         Time-Advance Function.
@@ -306,9 +315,6 @@ class Agent(AtomicDEVS):
         # Compute 'ta', the time to the next scheduled internal transition,
         # based (typically) on current State.
         return self.state.ta
-
-    def modelTransition(self, state):
-        pass
 
 
 class Environment(CoupledDEVS):
@@ -382,13 +388,6 @@ class Environment(CoupledDEVS):
             #self.nodes_free_deg[state.id] = state.free_deg
             self.agent_states[state.name] = (state.state, state.emergence)
 
-        for ag_state in x_b_micro:
-            if ag_state.state == SIRStates.I and not ag_state.to_recover:
-                self.globalModelTransition(ag_state)
-
-    def modelTransition(self, state):
-        pass
-
     def getContextInformation(self, property, *args, **kwargs):
         super(Environment, self).getContextInformation(property)
         if(property == ENVProps.AGENT_STATES):
@@ -402,8 +401,6 @@ class Environment(CoupledDEVS):
             infected_percentage = infected_number / float(len(self.agents))
             return Parameters.QUARANTINE_THRESHOLD < infected_percentage
             
-            
-
     def select(self, immChildren):
         """
         Choose a model to transition from all possible models.
@@ -411,9 +408,9 @@ class Environment(CoupledDEVS):
         # Doesn't really matter, as they don't influence each other
         return immChildren[0]
 
-    def globalModelTransition(self, model_state): 
+    def modelTransition(self, state): 
         # Sort a random value from the weighted list of nodes
-        newly_inf = model_state
+        newly_inf=state["newly_infected"]
         current_time=newly_inf.current_time
         newly_inf_id=newly_inf.id        
         newly_inf_deg = newly_inf.free_deg
