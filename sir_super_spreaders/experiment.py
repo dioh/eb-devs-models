@@ -141,7 +141,7 @@ data_melteada = data_melteada.rename(columns={'variable': 'State', 't': 'Time', 
 fig, ax =plt.subplots(figsize=(12, 14))
 colors=["#FF0B04","#4374B3","#228800"]
 sns.set_palette(sns.color_palette(colors))
-sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State', style='Quarantine Acceptance',  ax=ax,color=['r','g','b'], ci=None)
+sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State', style='Quarantine Acceptance',  ax=ax,color=['r','g','b'])#, ci=None)
 
 plt.setp(ax,yticks=np.arange(0, 1.01, 0.10))
 #plt.legend()

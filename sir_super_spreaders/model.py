@@ -83,7 +83,7 @@ class LogAgent(AtomicDEVS):
         return self.ta
 
     def set_values(self):
-        self.ta = 0.05
+        self.ta = 0.01
 
 class AgentState(object):
     def __init__(self, model, name, id, state):
@@ -97,8 +97,8 @@ class AgentState(object):
         self._to_recover = False
         self._emergence = False
         self.neighbors = 0
-        self.free_deg = np.random.poisson(5) if id!=0 else 0
         self.deg = np.random.poisson(5) 
+        self.free_deg = self.deg if id!=0 else 0
         self.model = model
 
         self.neighbors_state = {}
@@ -111,13 +111,10 @@ class AgentState(object):
         prob = 0
         neighbors_states = self.neighbors_state.values()
         self.model_transition = True
-        if len(neighbors_states) >  0 and sum(np.array(neighbors_states) == SIRStates.S) > 0:
-            prob = (float(Parameters.RHO_PROB) / (self.deg * Parameters.BETA_PROB+Parameters.RHO_PROB))
-            self.to_recover = np.random.random() < prob
-            self.ta = np.random.exponential(float(1)/(self.deg * Parameters.BETA_PROB+Parameters.RHO_PROB))
-        else:
-            self.to_recover = True
-            self.ta=np.random.exponential(float(1)/Parameters.RHO_PROB)
+        prob = (float(Parameters.RHO_PROB) / (self.deg * Parameters.BETA_PROB+Parameters.RHO_PROB))
+        self.to_recover = np.random.random() < prob
+        self.ta = np.random.exponential(float(1)/(self.deg * Parameters.BETA_PROB+Parameters.RHO_PROB))
+
 
     @property
     def name(self):
