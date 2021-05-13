@@ -89,7 +89,7 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)
 
 DURATION = 4
-RETRIES = 30
+RETRIES = 2
 output_columns = ['t','I','S','R','retry']
 
 dfs = []
@@ -122,37 +122,57 @@ def run_multiple_retries():
     for i in range(RETRIES):
         run_single(retry=i)
 
-for i in [1]: #, 0.10, 0.40]:
-    Parameters.QUARANTINE_THRESHOLD = i  
-    Parameters.QUARANTINE_ACCEPTATION = i
-    run_multiple_retries()
+def run_normal_experiment():
+    for i in [1, 0.10, 0.40]:
+        Parameters.QUARANTINE_THRESHOLD = i  
+        Parameters.QUARANTINE_ACCEPTATION = 0.2
+        run_multiple_retries()
 
-data = pd.concat(dfs)
-data.to_csv('paraNumeric.csv')
+    data = pd.concat(dfs)
+    data.to_csv('paraNumeric.csv')
 
-aux = data.groupby('retry').max().reset_index()
-aux = aux[(aux.R > 50)]
-data = data[data.retry.isin(aux.retry)]
-data_melteada = pd.melt(data, id_vars=['t', 'retry', 'Quarantine Threshold', 'Quarantine Acceptance'], value_vars=['I', 'S', 'R'])
+    aux = data.groupby('retry').max().reset_index()
+    aux = aux[(aux.R > 50)]
+    data = data[data.retry.isin(aux.retry)]
+    data_melteada = pd.melt(data, id_vars=['t', 'retry', 'Quarantine Threshold', 'Quarantine Acceptance'], value_vars=['I', 'S', 'R'])
 
-data_melteada['value'] = data_melteada['value'] / float(300)
-data_melteada = data_melteada.rename(columns={'variable': 'State', 't': 'Time', 'value': 'Proportion'})
+    data_melteada['value'] = data_melteada['value'] / float(300)
+    data_melteada = data_melteada.rename(columns={'variable': 'State', 't': 'Time', 'value': 'Proportion'})
 
-fig, ax =plt.subplots(figsize=(12, 14))
-colors=["#FF0B04","#4374B3","#228800"]
-sns.set_palette(sns.color_palette(colors))
-sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State', style='Quarantine Acceptance',  ax=ax,color=['r','g','b'])#, ci=None)
+    fig, ax =plt.subplots(figsize=(12, 14))
+    colors=["#FF0B04","#4374B3","#228800"]
+    sns.set_palette(sns.color_palette(colors))
+    sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State', style='Quarantine Acceptance',  ax=ax,color=['r','g','b'])#, ci=None)
 
-plt.setp(ax,yticks=np.arange(0, 1.01, 0.10))
-#plt.legend()
-plt.legend(bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
-plt.tight_layout()
-plt.savefig('agent_new_2.png', bbox_inches='tight')
+    plt.setp(ax,yticks=np.arange(0, 1.01, 0.10))
+    #plt.legend()
+    plt.legend(bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
+    plt.tight_layout()
+    plt.savefig('agent_new_2.png', bbox_inches='tight')
 
-#BETA_PROB = 10 RHO_PROB = 0.9
-#T,dt,EK,g,b,lamb,pob
+def run_phase_transition_experiment():
+    for i in np.arange(0, 1, 0.3):
+        for j in np.arange(0, 1, 0.3):
+            Parameters.QUARANTINE_THRESHOLD = i  
+            Parameters.QUARANTINE_ACCEPTATION = j
+            run_multiple_retries()
+
+    data = pd.concat(dfs)
+
+    aux = data.groupby('retry').max().reset_index()
+    aux = aux[(aux.R > 50)]
+    data = data[data.retry.isin(aux.retry)]
     
-#    ======================================================================
 
-# 5. (optional) Extract data from the simulated model
-# print("Simulation terminated with traffic light in state %s" % (trafficSystem.trafficLight.state.get()))
+    data.to_csv('paraNumeric.csv')
+    last_measure = data[data.t.ge(3.9999)]
+    mean_last_measure = last_measure.groupby(['Quarantine Threshold', 'Quarantine Acceptance']).mean().\
+            reset_index()
+    pivot = mean_last_measure.pivot('Quarantine Threshold', 'Quarantine Acceptance', 'R')
+    g = sns.heatmap(pivot, annot=True, linewidths=.5, fmt='g', cmap="RdYlGn", cbar=False,)
+
+    plt.savefig('phase_transition.png', bbox_inches='tight')
+
+
+if __name__ == '__main__':
+    run_phase_transition_experiment()
