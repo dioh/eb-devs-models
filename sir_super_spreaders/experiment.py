@@ -26,6 +26,7 @@ from matplotlib import pyplot as plt
 # Import the model to be simulated
 from model import Environment, Parameters
 import numpy as np
+from tqdm import tqdm
 
 
 #    ======================================================================
@@ -89,7 +90,7 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)
 
 DURATION = 4
-RETRIES = 2
+RETRIES = 50
 output_columns = ['t','I','S','R','retry']
 
 dfs = []
@@ -151,20 +152,21 @@ def run_normal_experiment():
     plt.savefig('agent_new_2.png', bbox_inches='tight')
 
 def run_phase_transition_experiment():
-    for i in np.arange(0, 1, 0.3):
-        for j in np.arange(0, 1, 0.3):
+    for i in tqdm(np.arange(0, 1, 0.2)):
+        for j in np.arange(0, 1, 0.2):
             Parameters.QUARANTINE_THRESHOLD = i  
             Parameters.QUARANTINE_ACCEPTATION = j
             run_multiple_retries()
 
     data = pd.concat(dfs)
+    data.to_csv('paraNumeric.csv')
 
-    aux = data.groupby('retry').max().reset_index()
+    aux = data.groupby(['retry','Quarantine Threshold', 'Quarantine Acceptance']).max().reset_index()
+
     aux = aux[(aux.R > 50)]
     data = data[data.retry.isin(aux.retry)]
     
 
-    data.to_csv('paraNumeric.csv')
     last_measure = data[data.t.ge(3.9999)]
     mean_last_measure = last_measure.groupby(['Quarantine Threshold', 'Quarantine Acceptance']).mean().\
             reset_index()
