@@ -76,14 +76,14 @@ from model import GrandParent
 
 import model
 
-DURATION = 6
+DURATION = 60
 RETRIES = 1
 
 environ = GrandParent(name='Env')
 sim = Simulator(environ)
 sim.setTerminationTime(DURATION)
 sim.setClassicDEVS()
-sim.setVerbose(None)
+# sim.setVerbose(None)
 sim.simulate()
 
 #    ======================================================================

@@ -1,0 +1,56 @@
+@startuml
+robust "Model" as MS
+robust "Parent Model" as PMS
+robust "Grand Parent Model" as GPMS
+
+@1
+MS is 0
+PMS is 0
+GPMS is 0
+
+@2
+MS is 1
+PMS is 0
+GPMS is 0
+
+@3
+MS is 0
+PMS is 1
+GPMS is 0
+
+@4
+MS is 1
+PMS is 0
+GPMS is 1
+
+@5
+MS is 0
+PMS is 1
+GPMS is 0
+
+@6
+MS is 1
+PMS is 0
+GPMS is 1
+
+@7
+MS is 0
+PMS is 1
+GPMS is 0
+
+@8
+MS is 1
+PMS is 0
+GPMS is 1
+
+@9
+MS is 0
+PMS is 1
+GPMS is 0
+
+@10
+MS is 1
+PMS is 0
+GPMS is 1
+
+@enduml
