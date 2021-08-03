@@ -1,0 +1,101 @@
+@startuml
+concise "Atomic1" as Atomic1
+concise "Atomic2" as Atomic2
+
+concise "Parent" as PMS
+concise "Grand Parent" as GPMS
+
+
+@1
+Atomic1 is X
+PMS is ""
+GPMS is ""
+Atomic2 is P
+PMS is ""
+GPMS is ""
+
+@2
+Atomic1 is K
+PMS is PX
+GPMS is ""
+Atomic2 is X
+PMS is PX
+GPMS is ""
+
+Atomic1 -> PMS@2.25
+Atomic2 -> PMS@2.25
+
+PMS@2.5 -> Atomic2@2.5
+PMS@2.75 -> Atomic1@2.75
+
+@3
+Atomic1 is B
+PMS is KX
+GPMS is XP
+Atomic2 is N
+PMS is KX
+GPMS is XP
+
+PMS -> GPMS@3.5
+GPMS@3.5 -> PMS@3.5
+
+PMS@3.5 -> Atomic2@3.5
+PMS@3.75 -> Atomic1@3.75
+
+@4
+Atomic1 is X
+PMS is BN
+GPMS is XK
+Atomic2 is R
+PMS is BN
+GPMS is XK
+
+@5
+Atomic1 is X
+PMS is XR
+GPMS is NB
+Atomic2 is Y
+PMS is XR
+GPMS is NB
+
+@6
+Atomic1 is I
+PMS is XY
+GPMS is RX
+Atomic2 is U
+PMS is XY
+GPMS is RX
+
+@7
+Atomic1 is Y
+PMS is IU
+GPMS is YX
+Atomic2 is V
+PMS is IU
+GPMS is YX
+
+@8
+Atomic1 is K
+PMS is YV
+GPMS is UI
+Atomic2 is O
+PMS is YV
+GPMS is UI
+
+@9
+Atomic1 is V
+PMS is KO
+GPMS is VY
+Atomic2 is X
+PMS is KO
+GPMS is VY
+
+@10
+Atomic1 is X
+PMS is VX
+GPMS is OK
+Atomic2 is Z
+PMS is VX
+GPMS is OK
+
+@enduml

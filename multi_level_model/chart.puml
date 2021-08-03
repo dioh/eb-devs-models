@@ -1,56 +1,602 @@
 @startuml
-robust "Model" as MS
-robust "Parent Model" as PMS
-robust "Grand Parent Model" as GPMS
+concise "AtomicAlphaAgent1"
+concise "AtomicAlphaAgent2" 
+concise "Parent Model" as PMS
+concise "Grand Parent Model" as GPMS
 
 @1
-MS is 0
-PMS is 0
-GPMS is 0
+AtomicAlphaAgent2 is O
+PMS is A
+GPMS is nan
 
 @2
-MS is 1
-PMS is 0
-GPMS is 0
+AtomicAlphaAgent1 is T
+PMS is OA
+GPMS is OA
+
+@2
+AtomicAlphaAgent2 is A
+PMS is TO
+GPMS is TO
 
 @3
-MS is 0
-PMS is 1
-GPMS is 0
+AtomicAlphaAgent1 is Q
+PMS is AT
+GPMS is AT
+
+@3
+AtomicAlphaAgent2 is C
+PMS is QA
+GPMS is QA
 
 @4
-MS is 1
-PMS is 0
-GPMS is 1
+AtomicAlphaAgent1 is A
+PMS is CQ
+GPMS is CQ
+
+@4
+AtomicAlphaAgent2 is Q
+PMS is AC
+GPMS is AC
 
 @5
-MS is 0
-PMS is 1
-GPMS is 0
+AtomicAlphaAgent1 is D
+PMS is QA
+GPMS is QA
+
+@5
+AtomicAlphaAgent2 is V
+PMS is DQ
+GPMS is DQ
 
 @6
-MS is 1
-PMS is 0
-GPMS is 1
+AtomicAlphaAgent1 is O
+PMS is VD
+GPMS is VD
+
+@6
+AtomicAlphaAgent2 is I
+PMS is OV
+GPMS is OV
 
 @7
-MS is 0
-PMS is 1
-GPMS is 0
+AtomicAlphaAgent1 is K
+PMS is IO
+GPMS is IO
+
+@7
+AtomicAlphaAgent2 is M
+PMS is KI
+GPMS is KI
 
 @8
-MS is 1
-PMS is 0
-GPMS is 1
+AtomicAlphaAgent1 is E
+PMS is MK
+GPMS is MK
+
+@8
+AtomicAlphaAgent2 is N
+PMS is EM
+GPMS is EM
 
 @9
-MS is 0
-PMS is 1
-GPMS is 0
+AtomicAlphaAgent1 is U
+PMS is NE
+GPMS is NE
+
+@9
+AtomicAlphaAgent2 is D
+PMS is UN
+GPMS is UN
 
 @10
-MS is 1
-PMS is 0
-GPMS is 1
+AtomicAlphaAgent1 is B
+PMS is DU
+GPMS is DU
+
+@10
+AtomicAlphaAgent2 is S
+PMS is BD
+GPMS is BD
+
+@11
+AtomicAlphaAgent1 is I
+PMS is SB
+GPMS is SB
+
+@11
+AtomicAlphaAgent2 is S
+PMS is IS
+GPMS is IS
+
+@12
+AtomicAlphaAgent1 is E
+PMS is SI
+GPMS is SI
+
+@12
+AtomicAlphaAgent2 is P
+PMS is ES
+GPMS is ES
+
+@13
+AtomicAlphaAgent1 is G
+PMS is PE
+GPMS is PE
+
+@13
+AtomicAlphaAgent2 is N
+PMS is GP
+GPMS is GP
+
+@14
+AtomicAlphaAgent1 is Q
+PMS is NG
+GPMS is NG
+
+@14
+AtomicAlphaAgent2 is Z
+PMS is QN
+GPMS is QN
+
+@15
+AtomicAlphaAgent1 is X
+PMS is ZQ
+GPMS is ZQ
+
+@15
+AtomicAlphaAgent2 is D
+PMS is XZ
+GPMS is XZ
+
+@16
+AtomicAlphaAgent1 is W
+PMS is DX
+GPMS is DX
+
+@16
+AtomicAlphaAgent2 is G
+PMS is WD
+GPMS is WD
+
+@17
+AtomicAlphaAgent1 is E
+PMS is GW
+GPMS is GW
+
+@17
+AtomicAlphaAgent2 is Z
+PMS is EG
+GPMS is EG
+
+@18
+AtomicAlphaAgent1 is V
+PMS is ZE
+GPMS is ZE
+
+@18
+AtomicAlphaAgent2 is B
+PMS is VZ
+GPMS is VZ
+
+@19
+AtomicAlphaAgent1 is B
+PMS is BV
+GPMS is BV
+
+@19
+AtomicAlphaAgent2 is V
+PMS is BB
+GPMS is BB
+
+@20
+AtomicAlphaAgent1 is H
+PMS is VB
+GPMS is VB
+
+@20
+AtomicAlphaAgent2 is A
+PMS is HV
+GPMS is HV
+
+@21
+AtomicAlphaAgent1 is U
+PMS is AH
+GPMS is AH
+
+@21
+AtomicAlphaAgent2 is P
+PMS is UA
+GPMS is UA
+
+@22
+AtomicAlphaAgent1 is H
+PMS is PU
+GPMS is PU
+
+@22
+AtomicAlphaAgent2 is F
+PMS is HP
+GPMS is HP
+
+@23
+AtomicAlphaAgent1 is A
+PMS is FH
+GPMS is FH
+
+@23
+AtomicAlphaAgent2 is U
+PMS is AF
+GPMS is AF
+
+@24
+AtomicAlphaAgent1 is J
+PMS is UA
+GPMS is UA
+
+@24
+AtomicAlphaAgent2 is F
+PMS is JU
+GPMS is JU
+
+@25
+AtomicAlphaAgent1 is L
+PMS is FJ
+GPMS is FJ
+
+@25
+AtomicAlphaAgent2 is T
+PMS is LF
+GPMS is LF
+
+@26
+AtomicAlphaAgent1 is J
+PMS is TL
+GPMS is TL
+
+@26
+AtomicAlphaAgent2 is X
+PMS is JT
+GPMS is JT
+
+@27
+AtomicAlphaAgent1 is P
+PMS is XJ
+GPMS is XJ
+
+@27
+AtomicAlphaAgent2 is O
+PMS is PX
+GPMS is PX
+
+@28
+AtomicAlphaAgent1 is I
+PMS is OP
+GPMS is OP
+
+@28
+AtomicAlphaAgent2 is S
+PMS is IO
+GPMS is IO
+
+@29
+AtomicAlphaAgent1 is H
+PMS is SI
+GPMS is SI
+
+@29
+AtomicAlphaAgent2 is G
+PMS is HS
+GPMS is HS
+
+@30
+AtomicAlphaAgent1 is Z
+PMS is GH
+GPMS is GH
+
+@30
+AtomicAlphaAgent2 is E
+PMS is ZG
+GPMS is ZG
+
+@31
+AtomicAlphaAgent1 is J
+PMS is EZ
+GPMS is EZ
+
+@31
+AtomicAlphaAgent2 is N
+PMS is JE
+GPMS is JE
+
+@32
+AtomicAlphaAgent1 is Q
+PMS is NJ
+GPMS is NJ
+
+@32
+AtomicAlphaAgent2 is K
+PMS is QN
+GPMS is QN
+
+@33
+AtomicAlphaAgent1 is W
+PMS is KQ
+GPMS is KQ
+
+@33
+AtomicAlphaAgent2 is R
+PMS is WK
+GPMS is WK
+
+@34
+AtomicAlphaAgent1 is Q
+PMS is RW
+GPMS is RW
+
+@34
+AtomicAlphaAgent2 is J
+PMS is QR
+GPMS is QR
+
+@35
+AtomicAlphaAgent1 is G
+PMS is JQ
+GPMS is JQ
+
+@35
+AtomicAlphaAgent2 is K
+PMS is GJ
+GPMS is GJ
+
+@36
+AtomicAlphaAgent1 is K
+PMS is KG
+GPMS is KG
+
+@36
+AtomicAlphaAgent2 is Z
+PMS is KK
+GPMS is KK
+
+@37
+AtomicAlphaAgent1 is E
+PMS is ZK
+GPMS is ZK
+
+@37
+AtomicAlphaAgent2 is X
+PMS is EZ
+GPMS is EZ
+
+@38
+AtomicAlphaAgent1 is Z
+PMS is XE
+GPMS is XE
+
+@38
+AtomicAlphaAgent2 is X
+PMS is ZX
+GPMS is ZX
+
+@39
+AtomicAlphaAgent1 is I
+PMS is XZ
+GPMS is XZ
+
+@39
+AtomicAlphaAgent2 is F
+PMS is IX
+GPMS is IX
+
+@40
+AtomicAlphaAgent1 is V
+PMS is FI
+GPMS is FI
+
+@40
+AtomicAlphaAgent2 is Z
+PMS is VF
+GPMS is VF
+
+@41
+AtomicAlphaAgent1 is V
+PMS is ZV
+GPMS is ZV
+
+@41
+AtomicAlphaAgent2 is H
+PMS is VZ
+GPMS is VZ
+
+@42
+AtomicAlphaAgent1 is D
+PMS is HV
+GPMS is HV
+
+@42
+AtomicAlphaAgent2 is N
+PMS is DH
+GPMS is DH
+
+@43
+AtomicAlphaAgent1 is E
+PMS is ND
+GPMS is ND
+
+@43
+AtomicAlphaAgent2 is W
+PMS is EN
+GPMS is EN
+
+@44
+AtomicAlphaAgent1 is L
+PMS is WE
+GPMS is WE
+
+@44
+AtomicAlphaAgent2 is W
+PMS is LW
+GPMS is LW
+
+@45
+AtomicAlphaAgent1 is Z
+PMS is WL
+GPMS is WL
+
+@45
+AtomicAlphaAgent2 is R
+PMS is ZW
+GPMS is ZW
+
+@46
+AtomicAlphaAgent1 is O
+PMS is RZ
+GPMS is RZ
+
+@46
+AtomicAlphaAgent2 is M
+PMS is OR
+GPMS is OR
+
+@47
+AtomicAlphaAgent1 is X
+PMS is MO
+GPMS is MO
+
+@47
+AtomicAlphaAgent2 is Y
+PMS is XM
+GPMS is XM
+
+@48
+AtomicAlphaAgent1 is P
+PMS is YX
+GPMS is YX
+
+@48
+AtomicAlphaAgent2 is A
+PMS is PY
+GPMS is PY
+
+@49
+AtomicAlphaAgent1 is O
+PMS is AP
+GPMS is AP
+
+@49
+AtomicAlphaAgent2 is B
+PMS is OA
+GPMS is OA
+
+@50
+AtomicAlphaAgent1 is H
+PMS is BO
+GPMS is BO
+
+@50
+AtomicAlphaAgent2 is Q
+PMS is HB
+GPMS is HB
+
+@51
+AtomicAlphaAgent1 is J
+PMS is QH
+GPMS is QH
+
+@51
+AtomicAlphaAgent2 is N
+PMS is JQ
+GPMS is JQ
+
+@52
+AtomicAlphaAgent1 is U
+PMS is NJ
+GPMS is NJ
+
+@52
+AtomicAlphaAgent2 is T
+PMS is UN
+GPMS is UN
+
+@53
+AtomicAlphaAgent1 is T
+PMS is TU
+GPMS is TU
+
+@53
+AtomicAlphaAgent2 is J
+PMS is TT
+GPMS is TT
+
+@54
+AtomicAlphaAgent1 is V
+PMS is JT
+GPMS is JT
+
+@54
+AtomicAlphaAgent2 is D
+PMS is VJ
+GPMS is VJ
+
+@55
+AtomicAlphaAgent1 is I
+PMS is DV
+GPMS is DV
+
+@55
+AtomicAlphaAgent2 is V
+PMS is ID
+GPMS is ID
+
+@56
+AtomicAlphaAgent1 is M
+PMS is VI
+GPMS is VI
+
+@56
+AtomicAlphaAgent2 is H
+PMS is MV
+GPMS is MV
+
+@57
+AtomicAlphaAgent1 is V
+PMS is HM
+GPMS is HM
+
+@57
+AtomicAlphaAgent2 is M
+PMS is VH
+GPMS is VH
+
+@58
+AtomicAlphaAgent1 is X
+PMS is MV
+GPMS is MV
+
+@58
+AtomicAlphaAgent2 is R
+PMS is XM
+GPMS is XM
+
+@59
+AtomicAlphaAgent1 is P
+PMS is RX
+GPMS is RX
+
+@59
+AtomicAlphaAgent2 is A
+PMS is PR
+GPMS is PR
+
+@60
+AtomicAlphaAgent1 is M
+PMS is AP
+GPMS is AP
+
+@60
+AtomicAlphaAgent2 is F
+PMS is MA
+GPMS is MA
 
 @enduml

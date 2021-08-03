@@ -43,14 +43,26 @@ class AgentAlpha(AtomicDEVS):
     def intTransition(self):
         self.current_time += self.ta 
         
-
         self.state = random.choice(string.ascii_uppercase)
         parent_info = self.parent.getContextInformation()
         pms = parent_info['parent']
         pms = ''.join(pms) if pms else ''
         gpms = parent_info['grandparent']
-        print('%d,%s,%s' % (self.current_time, self.name,self.state))
-        # print('%d,%s,%s,%s,%s' % (self.current_time, self.name, self.state, pms, gpms))
+        print('%d,%s,%s,%s,%s' % (self.current_time, self.name,self.state, pms,gpms))
+        # print('%d,%s,%s' % (self.current_time, self.name,self.state))
+        self.y_up = copy.deepcopy(self.state)
+        return self.state
+    
+    def extTransition(self, arg):
+        self.current_time += self.ta 
+        
+        self.state = random.choice(string.ascii_uppercase)
+        parent_info = self.parent.getContextInformation()
+        pms = parent_info['parent']
+        pms = ''.join(pms) if pms else ''
+        gpms = parent_info['grandparent']
+        # print('%d,%s,%s' % (self.current_time, self.name,self.state))
+        print('%d,%s,%s,%s,%s' % (self.current_time, self.name,self.state, pms,gpms))
         self.y_up = copy.deepcopy(self.state)
         return self.state
 
@@ -58,7 +70,14 @@ class AgentAlpha(AtomicDEVS):
         return self.name > other.name 
 
     def timeAdvance(self):
-        return 1 
+        if self.name == "AtomicAlphaAgent1":
+            return 1
+        return INFINITY
+
+    def outputFnc(self):
+        ret = {}
+        ret[self.OPorts[0]] = self.state
+        return ret
 
 class Parent(CoupledDEVS):
     def __init__(self, name=None):
@@ -73,8 +92,8 @@ class Parent(CoupledDEVS):
         self.agents.append(self.addSubModel(agent1))
         self.agents.append(self.addSubModel(agent2))
 
-        inport = agent1.addInPort(name='p1')
-        outport = agent2.addOutPort(name='p2')
+        outport = agent1.addOutPort(name='p1')
+        inport  = agent2.addInPort(name='p2')
         self.connectPorts(outport, inport)
 
         self.children_state = []
@@ -84,13 +103,13 @@ class Parent(CoupledDEVS):
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Parent, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        if len(self.children_state) >= 2:
-            self.children_state.pop()
-        self.children_state.insert(0, x_b_micro[0])
+        # if len(self.children_state) >= 2:
+        #     self.children_state.pop()
+        self.children_state = x_b_micro
         self.y_up = "".join(self.children_state)
         self.parent_state = copy.deepcopy(self.parent.getContextInformation())
-        self.state = self.y_up +  str(self.parent_state)
-        print("%d,%s,%s" % (e_g, self.name, self.state))
+        self.state = self.y_up #+  str(self.parent_state)
+        # print("%d,%s,%s" % (e_g, self.name, self.state))
         return
 
     def getContextInformation(self, *args, **kwargs):
@@ -111,12 +130,7 @@ class GrandParent(CoupledDEVS):
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(GrandParent, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        lettersum = 0
-        for i in x_b_micro:
-            if i in string.ascii_uppercase:
-                lettersum += string.ascii_uppercase.index(i)
-        self.state = lettersum
-        print("%d,%s,%s" % (e_g, self.name, self.state))
+        self.state = x_b_micro[::-1]
         return
 
     def getContextInformation(self, *args, **kwargs):
