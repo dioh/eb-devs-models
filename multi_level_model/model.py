@@ -12,6 +12,7 @@
 # limitations under the License.
 
 import sys
+import copy
 import numpy as np
 import pandas as pd
 import scipy.spatial.distance as distance
@@ -21,79 +22,105 @@ import scipy.special as special
 from sklearn.neighbors import NearestNeighbors
 import networkx as nx
 from pypdevs.infinity import INFINITY
+import random
+import string
 
 # Import code for DEVS model representation:
 from pypdevs.DEVS import *
-class Agent(AtomicDEVS):
+class AgentAlpha(AtomicDEVS):
     def __init__(self, name="", id=0):
         # Always call parent class' constructor FIRST:
         AtomicDEVS.__init__(self, name)
-        self.name = "AtomicAgent"
+        self.name = "AtomicAlphaAgent" + name
         self.current_time = 0.0
         self.id = id
         self.ta = 1
         self.elapsed = 0
-        self.state = True
+        self.state = random.choice(string.ascii_uppercase)
         self.y_up = self.state
 
-    def extTransition(self, inputs): 
-        return
 
     def intTransition(self):
         self.current_time += self.ta 
-        self.state = not self.state
-        self.y_up = self.state
-        print("state", self.state)
-        print(self.parent.getContextInformation())
+        
+
+        self.state = random.choice(string.ascii_uppercase)
+        parent_info = self.parent.getContextInformation()
+        pms = parent_info['parent']
+        pms = ''.join(pms) if pms else ''
+        gpms = parent_info['grandparent']
+        print('%d,%s,%s' % (self.current_time, self.name,self.state))
+        # print('%d,%s,%s,%s,%s' % (self.current_time, self.name, self.state, pms, gpms))
+        self.y_up = copy.deepcopy(self.state)
         return self.state
 
     def __lt__(self, other):
-        return self.name < other.name 
-
-    def outputFnc(self):
-        ret = {}
-        return ret
+        return self.name > other.name 
 
     def timeAdvance(self):
-        self.ta = 1
-        return self.ta
-
+        return 1 
 
 class Parent(CoupledDEVS):
     def __init__(self, name=None):
         CoupledDEVS.__init__(self, name)
-        self.model_id = 2
-        agent = Agent()
-        self.addSubModel(agent)
-        self.children_state = None
-        self.parent_state = None
-        self.y_up = None
+        self.model_id = 3
+        self.name = 'Parent'
+        self.agents = []
+        agent1 = AgentAlpha('1')
+        agent2 = AgentAlpha('2')
+
+
+        self.agents.append(self.addSubModel(agent1))
+        self.agents.append(self.addSubModel(agent2))
+
+        inport = agent1.addInPort(name='p1')
+        outport = agent2.addOutPort(name='p2')
+        self.connectPorts(outport, inport)
+
+        self.children_state = []
+        self.state = ""
+        self.parent_state = ""
+        self.y_up = ""
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Parent, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        self.children_state = x_b_micro
-        self.y_up = self.children_state
-        self.parent_state = self.parent.getContextInformation('STATE')
+        if len(self.children_state) >= 2:
+            self.children_state.pop()
+        self.children_state.insert(0, x_b_micro[0])
+        self.y_up = "".join(self.children_state)
+        self.parent_state = copy.deepcopy(self.parent.getContextInformation())
+        self.state = self.y_up +  str(self.parent_state)
+        print("%d,%s,%s" % (e_g, self.name, self.state))
         return
 
     def getContextInformation(self, *args, **kwargs):
-        return {"parent": self.children_state, "grandparent": self.parent_state}
+        return {"parent": self.state, "grandparent": self.parent_state}
+
+    def select(self, immChildren):
+        return immChildren[0]
 
 class GrandParent(CoupledDEVS):
     def __init__(self, name=None):
         CoupledDEVS.__init__(self, name)
         parent = Parent()
+
+        self.name = 'GrandParent'
         self.addSubModel(parent)
-        self.children_state = None
-        self.parent_state = None
+        self.children_state = ""
+        self.state = ""
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(GrandParent, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        self.children_state = x_b_micro
+        lettersum = 0
+        for i in x_b_micro:
+            if i in string.ascii_uppercase:
+                lettersum += string.ascii_uppercase.index(i)
+        self.state = lettersum
+        print("%d,%s,%s" % (e_g, self.name, self.state))
         return
 
     def getContextInformation(self, *args, **kwargs):
-        return self.children_state
+        return self.state
 
     def select(self, immChildren):
         return immChildren[0]
