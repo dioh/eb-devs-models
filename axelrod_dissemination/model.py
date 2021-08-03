@@ -29,7 +29,7 @@ from pypdevs.infinity import INFINITY
 from pypdevs.DEVS import *
 
 
-# np.random.seed(0)
+np.random.seed(0)
 
 def reverse_exponential(x):
     return np.random.exponential(1/float(x))
@@ -43,6 +43,7 @@ def threshold(t, theta, a, b):
 class Parameters:
     TOPOLOGY_FILE = ""
     CULTURE_LENGTH = 5
+    TRAITS = 20
     FASHION_RATE = 0.5
 
     EMERGENT_MODEL = False
@@ -94,7 +95,7 @@ class AgentState(object):
         self.id = id 
         self.ta = 0
 
-        self.culture = [np.random.randint(1, 10) for i in range(Parameters.CULTURE_LENGTH)] 
+        self.culture = [np.random.randint(1,Parameters.TRAITS) for i in range(Parameters.CULTURE_LENGTH)] 
         self.neighbors_culture = {} 
         self.action_state = ActionState.P 
 
@@ -123,7 +124,7 @@ class LogAgent(AtomicDEVS):
         self.set_values()
         self.stats = []
         self.name='logAgent'
-        self.ta = 1
+        # self.ta = 1
         self.state = "LogAgent"
         self.current_time = 0 
         self.elapsed = 0 
@@ -137,15 +138,21 @@ class LogAgent(AtomicDEVS):
         stats = (self.current_time, number_of_cultures)
         self.stats.append(stats) 
 
+    def printLogInfo(self):
+        (unique, counts) = np.unique(np.array(list(self.parent.cultures.values())), axis=0, return_counts=True) 
+        for u, c in zip(unique,counts):
+            print( 't: {}, Cultura, {}: #{}'.format(self.current_time,u, c))
+
     def intTransition(self):
         self.current_time += self.ta
         self.saveLoginfo()
+        # self.printLogInfo()
 
     def timeAdvance(self):
         return self.ta
 
     def set_values(self):
-        self.ta = 1 #0.1
+        self.ta = 1
 
 class Agent(AtomicDEVS):
     def __init__(self, name=None, id=None, kwargs=None):
@@ -195,7 +202,7 @@ class Agent(AtomicDEVS):
         else:
             toss = np.random.random()
 
-            if toss > Parameters.FASHION_RATE:
+            if toss >= Parameters.FASHION_RATE:
                 neighbor_culture = self.get_neighbor()
                 similarity = self.similarity_with(neighbor_culture)
                 if similarity < 1 and np.random.random() < similarity:
@@ -222,7 +229,7 @@ class Agent(AtomicDEVS):
         if self.state.action_state == ActionState.P:
             ta = 0
         elif self.state.action_state == ActionState.N:
-            ta = 1 #reverse_exponential(5) + 1
+            ta = 1 # reverse_exponential(5) + 1
         self.state.ta = ta
         return self.state.ta
 
@@ -252,16 +259,16 @@ class Environment(CoupledDEVS):
         self.updatecount = 0
 
     def create_topology(self):
-        G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
-        # G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
+        # self.G = nx.read_gml(Parameters.TOPOLOGY_FILE)
+        self.G = nx.read_adjlist(Parameters.TOPOLOGY_FILE)
         self.agents = {}
-        for i, node in G.nodes(data=True): 
+        for i, node in self.G.nodes(data=True): 
             ag_id = int(i)
             agent = Agent(name="agent %s" % i, id=ag_id, kwargs=node) 
             self.agents[ag_id] = self.addSubModel(agent)
-            self.G.add_node(agent.state.id)
+            # self.G.add_node(agent.state.id)
 
-        for i in G.edges():
+        for i in self.G.edges():
             if i[0] == i[1]: continue
             ind0 = int(i[0])
             ind1 = int(i[1])
@@ -278,6 +285,7 @@ class Environment(CoupledDEVS):
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
+        __import__('ipdb').set_trace()
         self.cultures.update(x_b_micro)
 
     def getContextInformation(self, property, *args, **kwargs):

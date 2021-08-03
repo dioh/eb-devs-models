@@ -15,6 +15,8 @@
 
 # Import code for model simulation:
 from pypdevs.simulator import Simulator
+from multiprocessing import Pool
+import multiprocessing
 import itertools
 import os
 import pandas as pd
@@ -87,8 +89,8 @@ plt.rc('figure', titlesize=BIGGER_SIZE)
 
 import model
 
-DURATION = 1000
-RETRIES = 10
+DURATION =2
+RETRIES = 11
 
 
 def run_single(retry=0):
@@ -96,7 +98,7 @@ def run_single(retry=0):
     sim = Simulator(environ)
     sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
-    # sim.setVerbose(None)
+    sim.setVerbose(None)
     sim.simulate()
     dataframe = pd.DataFrame(environ.agents[-1].stats)
     dataframe['retry'] = retry
@@ -104,66 +106,71 @@ def run_single(retry=0):
     tmpfile = tempfile.NamedTemporaryFile(mode='w', prefix='/tmp/axelrod_model', delete=False)
     dataframe.to_csv(tmpfile, header=False, index=False)
 
-    # topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+    topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
+    outfilename = "results/axelrod_%s_F_%s_Q_%s_retry_%d_fashion_%.2f.gml" % (topology_name, Parameters.CULTURE_LENGTH,Parameters.TRAITS, retry, Parameters.FASHION_RATE)
 
-    # outfilename = "results/sir_model_%s_emergence_%s_graph.gml" % (topology_name, Parameters.EMERGENT_MODEL)
-    # nx.write_gml(environ.G, outfilename)
+    str_cultures = {str(id):str(cult) for id, cult in environ.cultures.items()}
+    nx.set_node_attributes(environ.G, str_cultures, "culture")
+    nx.write_gml(environ.G, outfilename)
+    return dataframe
 
     # states = [(ag.state.id, ag.state.infected, ag.state.infected_time, ag.state.infected_end_time) for ag in environ.agents[:-1] if ag.state.infected_time > -1]
     # outfilenamestates = "results/sir_model_%s_emergence_%s_rt.csv" % (topology_name, Parameters.EMERGENT_MODEL)
     # pd.DataFrame(states).to_csv(outfilenamestates)
 
-FASHIONS = [0 , 0.25, 0.5, 0.75, 1]
+FASHIONS = [0, 0.25, 0.5, 0.75, 1]
+
+def lambda_prop(parameters): 
+    Parameters.FASHION_RATE = parameters[1]
+    return run_single(parameters[0])
 
 def run_multiple_retries():
     Parameters.TOPOLOGY_FILE = 'topology/lattice.adj'
 
-    for i, fashion_rate in tqdm.tqdm(itertools.product(range(RETRIES), FASHIONS)):
-        Parameters.FASHION_RATE = fashion_rate
+    Parameters.CULTURE_LENGTH = 5
+    Parameters.TRAITS = 5
+
+    usable_cpu_count = multiprocessing.cpu_count() - 2
+    parameters = itertools.product(range(RETRIES), FASHIONS)
+
+    for i in tqdm.tqdm(range(RETRIES)):
         run_single(retry=i)
 
-    filenames = [os.path.join("/tmp", f) for f in fnmatch.filter(os.listdir('/tmp'), 'axelrod_model*')]
+    pool =  Pool(usable_cpu_count) 
+    # pool_prop_res = []
+    # for r in tqdm.tqdm(pool.imap_unordered(lambda_prop, parameters), total=len(list(parameters))):
+    #     pool_prop_res.append(r)
+    pool_prop_res = pool.map(lambda_prop, parameters)
+    # pool_prop_res = []
+    # for i, fashion_rate in tqdm.tqdm(itertools.product(range(RETRIES), FASHIONS)):
+    #     Parameters.FASHION_RATE = fashion_rate
+    #     pool_prop_res.append(run_single(retry=i))
+
     topology_name = os.path.basename(Parameters.TOPOLOGY_FILE)
-    outfilename = "results/axelrod_%s_Q_%s_retries_%d.csv" % (topology_name, Parameters.CULTURE_LENGTH, RETRIES)
-    fin = fileinput.input(filenames)
+    outfilename = "results/axelrod_%s_F_%s_Q_%s_retries_%d.csv" % (topology_name, Parameters.CULTURE_LENGTH,Parameters.TRAITS, RETRIES)
 
     if not os.path.exists("results"):
         os.mkdir("results")
 
     output_columns = ['Time', 'Number of Cultures',  'retry', 'Fashion Rate']
-    with open(outfilename, 'w') as fout:
-        fout.write(",".join(output_columns))
-        fout.write('\n')
+    data = pd.concat(pool_prop_res)
+    data.columns = output_columns
+    data.to_csv(outfilename, header=True, index=False)
 
-
-    with open(outfilename, 'ab') as fout:
-        for filename in filenames:
-            with open(filename, 'rb') as readfile:
-                shutil.copyfileobj(readfile, fout)
-
-    for file in filenames: os.remove(file)
-
-    data = pd.read_csv(outfilename, header=0)
     filtered_data = data[(data.Time % 10 == 0)]
     plt.figure(figsize=(12,8))
 
     ax = sns.pointplot(x="Time", y="Number of Cultures", data=filtered_data,
             ci="sd", capsize=.2, dodge=True, hue='Fashion Rate')
 
-    # ax.xaxis.set_major_locator(plt.MaxNLocator(10))
-    # ax.xaxis.set_major_locator(plt.MultipleLocator(100))
-    # ax.xaxis.set_minor_locator(plt.MultipleLocator(10))
     for ind, label in enumerate(ax.get_xticklabels()):
-        if ind % 10 == 0:  # every 10th label is kept
+        if ind % 5 == 0:  # every 10th label is kept
             label.set_visible(True)
         else:
             label.set_visible(False)
     # ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
     fig_filename = outfilename.replace('csv', 'png')
     ax.get_figure().savefig(fig_filename)
-
-
-
 
 run_multiple_retries()
 
