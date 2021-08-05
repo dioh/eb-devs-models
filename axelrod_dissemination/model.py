@@ -41,40 +41,10 @@ def threshold(t, theta, a, b):
         return b
 
 class Parameters:
-    TOPOLOGY_FILE = ""
+    TOPOLOGY_FILE = "topology/lattice.adj"
     CULTURE_LENGTH = 5
     FASHION_RATE = 0.5
-
-    EMERGENT_MODEL = False
-    INITIAL_PROB = 0.05
-    RHO_PROB = 4.0
-    TW_SIZE = 5.0
-    TW_TRHD = 5.0
-    TW_BIN_SIZE = 15.0
-
-    NU = 10
-    A = NU
-    B = 0
-    CI = 10
-    CV = 1
-
-    U = staticmethod(threshold)
-
-    RECOVERY_TIME = 5.0
-    DEATH_TIME = 30.0 
-    RECOVERY_PROB = 0.95 
-
-    VACC_MODEL = False 
-
-    ALPHA_RATE =  0.4
-    BETA_RATE = 0.10 
-    GAMMA_RATE = 1.0/7
-
-    DEATH_MEAN_TIME = 15.0
-    RECOVERY_MEAN_TIME = 7
-
-DEBUG = True
-
+    TRAITS = 5
 
 def enum(**kwargs):
     class Enum(object): pass
@@ -88,32 +58,14 @@ ENVProps = enum(DECAY='decay_rate', NUMBER_OF_CULTURES='agent_states', INFECT_RA
 
 class AgentState(object):
     def __init__(self, name, id):
-        """TODO: to be defined1. """
         self._name = name
         self.current_time = 0.0
         self.id = id 
         self.ta = 0
 
-        self.culture = [np.random.randint(1, 10) for i in range(Parameters.CULTURE_LENGTH)] 
+        self.culture = [np.random.randint(1, Parameters.TRAITS) for i in range(Parameters.CULTURE_LENGTH)] 
         self.neighbors_culture = {} 
         self.action_state = ActionState.P 
-
-    @property
-    def name(self):
-        """I'm the 'heading' property."""
-        return self._name
-
-    @property
-    def ta(self):
-        """I'm the 'heading' property."""
-        return self._ta
-
-    @ta.setter
-    def ta(self, ta):
-        self._ta = ta
-
-    def get(self):
-        return(self._name, self._state)
 
     def __repr__(self):
         return "Agent: %s, culture: %s" % (str(self.name), str(self.culture))
@@ -292,7 +244,7 @@ class Environment(CoupledDEVS):
 
         if(property == ENVProps.FASHION):
             # Get a random feature
-            mat = np.array(self.cultures.values())
+            mat = np.array(list(self.cultures.values()))
             randind = np.random.randint(Parameters.CULTURE_LENGTH)
             feature = mat[:, randind]           
             fashion_value = np.bincount(feature).argmax()
