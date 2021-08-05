@@ -32,3 +32,4 @@ subprocess32
 tqdm
 traitlets
 wcwidth
+./pypdevs/src/
