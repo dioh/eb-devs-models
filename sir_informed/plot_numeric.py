@@ -28,21 +28,34 @@ data_melteada = pd.melt(data, id_vars=['t', 'retry', 'Quarantine Threshold'], va
 data_melteada['value'] = data_melteada['value'] / float(299)
 data_melteada = data_melteada.rename(columns={'variable': 'State', 't': 'Time', 'value': 'Proportion'})
 
-Sn,In,Rn=sir_num(4000*0.001,0.001,0,3,3,5,299)
+data_melteada['State'] = data_melteada['State'] + " EB-DEVS"
+
+Sn,In,Rn=sir_num(4000*0.001,0.001,0,1,3, 8,299)
 tiempo_modelo=np.arange(0,4,0.001)
 
 fig, ax =plt.subplots(figsize=(12,8))
+plt.grid()
 colors=["#FF0B04","#4374B3","#228800"]
 sns.set_palette(sns.color_palette(colors))
+
+ax.legend(labels=['S EB-DEVS','I EB-DEVS', 'R EB-DEVS'])
+
 sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State',  ax=ax,color=['r','g','b'])
 
+# ax.legend(handles[::-1], labels[::-1], title='Line', loc='upper left')
+
+# ax.legend(labels=mylabels)
+
 plt.setp(ax,yticks=np.arange(0, 1.01, 0.10))
-plt.legend(bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
 #ax.set_xticklabels(range(-1,4,1))
-plt.plot(tiempo_modelo,Sn,label='Snumeric',color="#4374B3",ls='--')
-plt.plot(tiempo_modelo,In,label='Inumeric',color="#FF0B04",ls='--')
-plt.plot(tiempo_modelo,Rn,label='Rnumeric',color="#228800",ls='--')
-plt.legend()
+plt.plot(tiempo_modelo,Sn,label='S ODEs',color="#4374B3",ls='--')
+plt.plot(tiempo_modelo,In,label='I ODEs',color="#FF0B04",ls='--')
+plt.plot(tiempo_modelo,Rn,label='R ODEs',color="#228800",ls='--')
+
+
+# plt.legend(labels=[1,2,3,4,5], bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
+plt.legend(labels=['S EB-DEVS','I EB-DEVS', 'R EB-DEVS', 'S ODEs', 'I ODEs', 'R ODEs']) #, bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
+# plt.legend()
 plt.title('SIR - Agent simulation vs Numeric Integration')
 plt.tight_layout()
 plt.savefig('numeric.png')
