@@ -89,8 +89,8 @@ plt.rc('figure', titlesize=BIGGER_SIZE)
 
 import model
 
-DURATION =2
-RETRIES = 11
+DURATION =10000
+RETRIES = 10
 
 
 def run_single(retry=0):
@@ -98,7 +98,7 @@ def run_single(retry=0):
     sim = Simulator(environ)
     sim.setTerminationTime(DURATION)
     sim.setClassicDEVS()
-    sim.setVerbose(None)
+    # sim.setVerbose(None)
     sim.simulate()
     dataframe = pd.DataFrame(environ.agents[-1].stats)
     dataframe['retry'] = retry
@@ -158,7 +158,7 @@ def run_multiple_retries():
     data.to_csv(outfilename, header=True, index=False)
 
     filtered_data = data[(data.Time % 10 == 0)]
-    plt.figure(figsize=(12,8))
+    plt.figure(figsize=(14,8))
 
     ax = sns.pointplot(x="Time", y="Number of Cultures", data=filtered_data,
             ci="sd", capsize=.2, dodge=True, hue='Fashion Rate')

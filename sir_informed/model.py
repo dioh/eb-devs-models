@@ -35,7 +35,7 @@ class Parameters:
     EMERGENT_MODEL = False
     INITIAL_PROB = 0
     BETA_PROB = 3
-    RHO_PROB = 3 #Gamma
+    RHO_PROB = 1 #Gamma
     TW_SIZE = 8
     TW_TRHD = 50
     TW_BIN_SIZE = 15

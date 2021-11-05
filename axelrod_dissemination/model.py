@@ -285,7 +285,6 @@ class Environment(CoupledDEVS):
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Environment, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        __import__('ipdb').set_trace()
         self.cultures.update(x_b_micro)
 
     def getContextInformation(self, property, *args, **kwargs):

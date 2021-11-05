@@ -38,7 +38,7 @@ plt.grid()
 colors=["#FF0B04","#4374B3","#228800"]
 sns.set_palette(sns.color_palette(colors))
 
-ax.legend(labels=['S EB-DEVS','I EB-DEVS', 'R EB-DEVS'])
+# ax.legend(labels=['S EB-DEVS','I EB-DEVS', 'R EB-DEVS'])
 
 sns.lineplot(data=data_melteada, x='Time', y='Proportion', hue='State',  ax=ax,color=['r','g','b'])
 
@@ -54,8 +54,8 @@ plt.plot(tiempo_modelo,Rn,label='R ODEs',color="#228800",ls='--')
 
 
 # plt.legend(labels=[1,2,3,4,5], bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
-plt.legend(labels=['S EB-DEVS','I EB-DEVS', 'R EB-DEVS', 'S ODEs', 'I ODEs', 'R ODEs']) #, bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
-# plt.legend()
+# plt.legend(labels=['S EB-DEVS','I EB-DEVS', 'R EB-DEVS', 'S ODEs', 'I ODEs', 'R ODEs']) #, bbox_to_anchor=( 0., 1.02,1.,.102),loc=3,ncol=2, mode="expand",borderaxespad=0.,title='SIR with Quarantine') #, borderaxespad=0.)
+plt.legend()
 plt.title('SIR - Agent simulation vs Numeric Integration')
 plt.tight_layout()
 plt.savefig('numeric.png')

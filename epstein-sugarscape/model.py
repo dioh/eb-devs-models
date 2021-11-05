@@ -160,13 +160,13 @@ class LogAgent(AtomicDEVS):
         self.my_input = {}
 
     def saveLoginfo(self): 
-        clear()
+        # clear()
         occ_grid, sugar_grid, p = self.parent.getContextInformation(ENVProps.GRID)
         g = self.parent.getContextInformation(ENVProps.GINI)
-        print ("\n".join( [ " ".join( [ c for c in r1 ] )+"  "+" ".join( [ str(c) for c in r2 ] ) for r1,r2 in zip(occ_grid,sugar_grid) ] ))
-        print ("".join(["="]*Parameters.GRID_SIZE[0]*4))
-        print ("Time: %.2f Population: %d Gini coefficient: %.2f" % (self.current_time, p, g))
-        print ("".join(["="]*Parameters.GRID_SIZE[0]*4))
+        # print ("\n".join( [ " ".join( [ c for c in r1 ] )+"  "+" ".join( [ str(c) for c in r2 ] ) for r1,r2 in zip(occ_grid,sugar_grid) ] ))
+        # print ("".join(["="]*Parameters.GRID_SIZE[0]*4))
+        # print ("Time: %.2f Population: %d Gini coefficient: %.2f" % (self.current_time, p, g))
+        # print ("".join(["="]*Parameters.GRID_SIZE[0]*4))
 
         stats = (self.current_time, p, g)
         self.stats.append(stats)

@@ -72,7 +72,7 @@ def eval_func(x, b, c):
     return np.exp(x*b + c)
 
 def func_powerlaw(x,  m, c):
-        return  x**m * c
+    return  x**m * c
 
 def fit_power(df, parameters):
     cnt = df.groupby('Degree').mean().Frequency.values
@@ -90,7 +90,7 @@ def fit_power(df, parameters):
     degree_for_mean_freq = df.iloc[(df['Frequency']-mean_freq).abs().argsort()[:1]].Degree.to_list()[0]
 
 
-    plt.figure(figsize=(12,8))
+    plt.figure(figsize=(12,9))
     yajuste2 = func_powerlaw(np.linspace(min(deg), max(deg), 50), *popt)
     sns.pointplot(x=np.linspace(min(deg), max(deg), 50), y=yajuste2)
     ax = sns.barplot(data=df, x='Degree', y='Frequency', color='gray')
@@ -156,7 +156,7 @@ def fit_power(df, parameters):
 import model
 
 DURATION = 10000
-RETRIES = 10
+RETRIES = 30
 
 
 dfs = []
@@ -195,17 +195,17 @@ def run_multiple_retries():
 
     for connect_to in [1, 2, 3]:
         Parameters.CONNECT_TO = connect_to
+        dfs = []
         for i in tqdm.tqdm(range(RETRIES)):
             run_single(retry=i)
         df = pd.concat(dfs)
         fit_power(df, connect_to)
-        dfs = []
 
         degrees_df = pd.concat(degrees_dfs)
         degrees_df.columns = ['Time', 'Average Degree', 'sd_deg', 'num_nodes', 'Connect To', 'retry']
         all_degree_dfs.append(degrees_df)
 
-        plt.figure(figsize=(12,8))
+        plt.figure(figsize=(14,10))
         sns.relplot(x='Time', y='Average Degree',  data=degrees_df[degrees_df['Time'] % 10 == 0], kind='line')
 
         plt.savefig('pruebadegs_%s.png' % connect_to)
@@ -218,10 +218,12 @@ degrees_df = pd.concat(all_degree_dfs)
 degrees_df.columns = ['Time', 'Average Degree', 'sd_deg', 'num_nodes', 'Connect To', 'retry']
 degrees_df['Connect To'] = degrees_df['Connect To'].astype('category')
 
-plt.figure(figsize=(12,8))
+plt.figure(figsize=(12,9))
 sns.relplot(x='Time', y='Average Degree',
        data=degrees_df[(degrees_df['Time'] % 10 == 0)], kind='line', hue='Connect To')
-plt.tight_layout()
+plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+           ncol=6, mode="expand", borderaxespad=0., title='Connect To')
+
 
 plt.savefig('pruebadegs_all.png')
 

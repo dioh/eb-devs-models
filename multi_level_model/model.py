@@ -34,35 +34,42 @@ class AgentAlpha(AtomicDEVS):
         self.name = "AtomicAlphaAgent" + name
         self.current_time = 0.0
         self.id = id
-        self.ta = 1
-        self.elapsed = 0
-        self.state = random.choice(string.ascii_uppercase)
-        self.y_up = self.state
 
+        if self.name == "AtomicAlphaAgent1":
+            # self.ta = np.random.(1)
+            self.ta = random.uniform(0.15, 2)
+            # self.ta = 0
+        else:
+            self.ta = INFINITY
+        # self.ta = 0
+        self.elapsed = 0
+        self.state = random.choice(string.ascii_uppercase[0:3])
+        self.y_up = self.state
+        self.started = True
 
     def intTransition(self):
         self.current_time += self.ta 
+        self.started = True
         
-        self.state = random.choice(string.ascii_uppercase)
         parent_info = self.parent.getContextInformation()
         pms = parent_info['parent']
         pms = ''.join(pms) if pms else ''
         gpms = parent_info['grandparent']
-        print('%d,%s,%s,%s,%s' % (self.current_time, self.name,self.state, pms,gpms))
-        # print('%d,%s,%s' % (self.current_time, self.name,self.state))
+        self.state = random.choice(string.ascii_uppercase[0:3])
+        print('%.2f,%s,%s' % (self.current_time, self.name,self.state))
+        # print('%.2f,%s,%s,%s,%s' % (self.current_time, self.name,self.state, pms,gpms))
         self.y_up = copy.deepcopy(self.state)
         return self.state
     
     def extTransition(self, arg):
-        self.current_time += self.ta 
-        
-        self.state = random.choice(string.ascii_uppercase)
+        self.current_time += self.elapsed 
         parent_info = self.parent.getContextInformation()
         pms = parent_info['parent']
         pms = ''.join(pms) if pms else ''
         gpms = parent_info['grandparent']
-        # print('%d,%s,%s' % (self.current_time, self.name,self.state))
-        print('%d,%s,%s,%s,%s' % (self.current_time, self.name,self.state, pms,gpms))
+        self.state = random.choice(string.ascii_uppercase[0:3])
+        print('%.2f,%s,%s' % (self.current_time, self.name,self.state))
+        # print('%.2f,%s,%s,%s,%s' % (self.current_time, self.name,self.state, pms,gpms))
         self.y_up = copy.deepcopy(self.state)
         return self.state
 
@@ -70,13 +77,19 @@ class AgentAlpha(AtomicDEVS):
         return self.name > other.name 
 
     def timeAdvance(self):
+        if not self.started:
+            return 0
         if self.name == "AtomicAlphaAgent1":
-            return 1
+            self.ta = random.uniform(0.15, 2)
+            return self.ta
         return INFINITY
 
     def outputFnc(self):
         ret = {}
-        ret[self.OPorts[0]] = self.state
+        # if not self.started:
+        #     return {}
+        if self.OPorts:
+            ret[self.OPorts[0]] = self.state
         return ret
 
 class Parent(CoupledDEVS):
@@ -103,13 +116,11 @@ class Parent(CoupledDEVS):
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(Parent, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        # if len(self.children_state) >= 2:
-        #     self.children_state.pop()
         self.children_state = x_b_micro
         self.y_up = "".join(self.children_state)
         self.parent_state = copy.deepcopy(self.parent.getContextInformation())
-        self.state = self.y_up #+  str(self.parent_state)
-        # print("%d,%s,%s" % (e_g, self.name, self.state))
+        self.state = self.y_up 
+        print('%.2f,%s,%s' % (e_g, self.name,self.state))
         return
 
     def getContextInformation(self, *args, **kwargs):
@@ -130,7 +141,12 @@ class GrandParent(CoupledDEVS):
 
     def globalTransition(self, e_g, x_b_micro, *args, **kwargs):
         super(GrandParent, self).globalTransition(e_g, x_b_micro, *args, **kwargs)
-        self.state = x_b_micro[::-1]
+        
+        if len(x_b_micro) < 2:
+            self.state = True
+        else:
+            self.state = x_b_micro[0] != x_b_micro[1]
+        print('%.2f,%s,%s' % (e_g, self.name,self.state))
         return
 
     def getContextInformation(self, *args, **kwargs):

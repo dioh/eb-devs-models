@@ -23,7 +23,7 @@ data = pd.read_csv(outfilename, header=0)
 data.Time = data.Time - 1
 # filtered_data = data[((data.Time % 10 == 0) | (data.Time == 0)) & (data.Time >= 0)] #& (data.Time < 5000)]
 filtered_data = data#[((data.Time % 100 == 0) | (data.Time < 100)) & (data.Time >= 0)] #& (data.Time < 5000)]
-plt.figure(figsize=(12,8))
+plt.figure(figsize=(14,10))
 
 
 ax = sns.pointplot(x="Time", y="Number of Cultures", data=filtered_data,ci=None,

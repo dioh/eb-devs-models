@@ -13,23 +13,17 @@ csv = StringIO('''T,MName,MS,PMS,GPMS
 6,True,False,True
 ''')
 
-df = pd.read_csv('output.csv')
+df = pd.read_csv('datos.csv')
 
 print('''@startuml''')
 
-for mname in df.ModelName.array.unique():
-    print ('concise "%s" as %s' % (mname, mname))
 
 print('''
-concise "Parent Model" as PMS
-concise "Grand Parent Model" as GPMS
+robust "Grand Parent Model" as GPMS
+robust "Parent Model" as PMS
 ''')
-# for mname in df.MS.array.unique():
-#     print ('concise "%s" as %s' % (mname, mname))
-# for mname in df.PMS.array.unique():
-#     print ('concise "%s" as %s' % (mname, mname))
-# for mname in df.GPMS.array.unique():
-#     print ('concise "%s" as %s' % (mname, mname))
+for mname in df.ModelName.array.unique():
+    print ('robust "%s" as %s' % (mname, mname))
 print('')
 
 dicc = {}
@@ -40,8 +34,11 @@ for index, row in df.iterrows():
     vv.append(txt)
     dicc[row['T']] = vv   
 
-for k, v in dicc.items():
-    print('@%d\n%s' % (k, "\n".join(sorted(v))))
+ndic = dict(sorted(dicc.items(), key=lambda item: item[1]))
+
+
+for k in sorted(dicc.keys()):
+    print('@%.2f\n%s' % (k, "\n".join(sorted(dicc[k]))))
     print('')
 
 
