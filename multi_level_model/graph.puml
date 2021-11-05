@@ -1,9 +1,8 @@
 @startuml
-concise "Atomic1" as Atomic1
-concise "Atomic2" as Atomic2
-
-concise "Parent" as PMS
-concise "Grand Parent" as GPMS
+robust "Grand Parent" as GPMS
+robust "Parent" as PMS
+robust "Atomic1" as Atomic1
+robust "Atomic2" as Atomic2
 
 
 @1
